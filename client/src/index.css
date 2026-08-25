@@ -41,55 +41,6 @@
   --color-tier-4: oklch(0.56 0.18 25);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --color-ground: #0f1418;
-    --color-surface: #171e24;
-    --color-surface-2: #1e2730;
-    --color-surface-3: #29343e;
-    --color-ink: #e7edf2;
-    --color-ink-2: #a3b2bd;
-    --color-ink-3: #74838e;
-    --color-hairline: #2a343d;
-    --color-hairline-strong: #3a4650;
-
-    --color-brand: #5fb2e0;
-    --color-brand-strong: #8ccdf0;
-    --color-brand-wash: #16293a;
-
-    --color-good: #57bd8a;
-    --color-good-wash: #14261d;
-    --color-warn: #d9a441;
-    --color-warn-wash: #2a2313;
-    --color-crit: #e28585;
-    --color-crit-wash: #2c1919;
-    --color-gold: #d6b158;
-    --color-gold-wash: #2a2313;
-  }
-}
-:root[data-theme='dark'] {
-  --color-ground: #0f1418;
-  --color-surface: #171e24;
-  --color-surface-2: #1e2730;
-  --color-surface-3: #29343e;
-  --color-ink: #e7edf2;
-  --color-ink-2: #a3b2bd;
-  --color-ink-3: #74838e;
-  --color-hairline: #2a343d;
-  --color-hairline-strong: #3a4650;
-  --color-brand: #5fb2e0;
-  --color-brand-strong: #8ccdf0;
-  --color-brand-wash: #16293a;
-  --color-good: #57bd8a;
-  --color-good-wash: #14261d;
-  --color-warn: #d9a441;
-  --color-warn-wash: #2a2313;
-  --color-crit: #e28585;
-  --color-crit-wash: #2c1919;
-  --color-gold: #d6b158;
-  --color-gold-wash: #2a2313;
-}
-
 * {
   box-sizing: border-box;
 }

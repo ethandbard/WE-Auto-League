@@ -566,6 +566,4 @@ the request shape.
 - **Trend charts across periods** — `AdvisorCard`'s chart is one period's
   category breakdown, not a multi-period trend; there are only two periods of
   data to trend against so far.
-- **Dark mode toggle** — the CSS tokens support it via
-  `prefers-color-scheme` and `data-theme`, but there's no in-app switch.
 - **CI** — no `.github/workflows` yet.
