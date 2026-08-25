@@ -279,7 +279,7 @@ export function Enter() {
                           value={advisorValues[advisor.id]?.[c.key] ?? ''}
                           onChange={(e) => setAdvisorValues((prev) => ({ ...prev, [advisor.id]: { ...prev[advisor.id], [c.key]: e.target.value } }))}
                           onKeyDown={(e) => handleGridKeyDown(e, rowIndex, colIndex, data.roster.length, data.advisorCategories.length)}
-                          className="w-24 rounded border border-hairline-strong bg-surface px-2 py-1 text-right font-mono text-sm outline-none focus:border-brand disabled:bg-surface-2"
+                          className="no-spin w-24 rounded border border-hairline-strong bg-surface px-2 py-1 text-right font-mono text-sm outline-none focus:border-brand disabled:bg-surface-2"
                         />
                       </td>
                     ))}
@@ -301,7 +301,7 @@ export function Enter() {
                     disabled={period?.status !== 'open'}
                     value={managerValues[c.key] ?? ''}
                     onChange={(e) => setManagerValues((prev) => ({ ...prev, [c.key]: e.target.value }))}
-                    className="w-32 rounded border border-hairline-strong bg-surface px-2 py-1 font-mono text-sm outline-none focus:border-brand disabled:bg-surface-2"
+                    className="no-spin w-32 rounded border border-hairline-strong bg-surface px-2 py-1 font-mono text-sm outline-none focus:border-brand disabled:bg-surface-2"
                   />
                 </label>
               ))}

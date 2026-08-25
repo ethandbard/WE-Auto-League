@@ -103,6 +103,17 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Native number spinners steal clicks and break spreadsheet-style entry. */
+input[type='number'].no-spin {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+input[type='number'].no-spin::-webkit-inner-spin-button,
+input[type='number'].no-spin::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
 /* Signature: a tiny checkered-flag corner, reserved for the #1 position on a leaderboard. */
 .checker-corner {
   display: inline-block;

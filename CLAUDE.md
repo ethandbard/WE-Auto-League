@@ -500,12 +500,19 @@ commit that is running. Ingress, DNS, and the Access app `auto` (reusable
 tunnel, Access, and nightly backups go through the `deploy-to-hetzner`
 skill.
 
-Production `AUTH_PROVIDER` is `cloudflare-access`. Access PIN maps
-`Cf-Access-Authenticated-User-Email` onto `employees.email` (the seed
-commissioner is `ethan@thebardfamily.com`). Magic-link sessions stay the
-local default. Do not switch production back to `session` until Cloudflare
-Email Sending is configured — `NODE_ENV=production` will not return the
-link in the JSON, and the console transport does not log the URL.
+Production `AUTH_PROVIDER` is `cloudflare-access`. Two gates, not one:
+
+1. Cloudflare Access (`allow-emails`) is the front door — a PIN for
+   `ethan@thebardfamily.com` (and whoever else is on that policy).
+2. The origin then maps `Cf-Access-Authenticated-User-Email` onto
+   `employees.email`. The seed commissioner is `ethan@thebardfamily.com`.
+   Matching that row is what makes someone a commissioner in the app.
+   The `/sign-in` magic-link page is unused in this mode: `resolveActor`
+   never reads the session cookie, and production does not email the
+   link (console transport, and the JSON does not return `devLink`).
+
+Magic-link sessions stay the local default. Do not switch production back
+to `session` until Cloudflare Email Sending is configured.
 
 The production image has no `tsx`. After the first deploy, migrate and seed
 with compiled JS, not the npm scripts:
