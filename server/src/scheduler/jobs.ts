@@ -6,6 +6,7 @@ import { scheduledWindowDatesInRange, cutoffForWindowDate, currentWindow } from 
 import { sendOnce } from '../email/send.js';
 import { reminderEmail, latePenaltyEmail } from '../email/templates.js';
 import { mailStandingsForPeriod } from '../email/standingsMail.js';
+import { ccExtraRecipients } from '../email/recipients.js';
 import { withAdvisoryLock } from './lock.js';
 import { env } from '../env.js';
 
@@ -54,7 +55,9 @@ export async function applyMissedWindowPenalties(): Promise<number> {
         const manager = (await db.select().from(employees).where(and(eq(employees.dealershipId, dealership.id), eq(employees.role, 'manager')))).at(0);
         if (manager) {
           const tpl = latePenaltyEmail({ recipientName: manager.alias ?? manager.name, dealershipName: dealership.alias ?? dealership.name, windowDate, penaltyValue: Number(league.latePenaltyValue) });
-          await sendOnce({ leagueId: league.id, template: `late-penalty:${windowDate}`, periodId: period.id, to: manager.email, ...tpl });
+          const send = { leagueId: league.id, template: `late-penalty:${windowDate}`, periodId: period.id, ...tpl };
+          await sendOnce({ ...send, to: manager.email });
+          await ccExtraRecipients(league.id, 'late-penalty', dealership.id, send);
         }
       }
     }
@@ -86,8 +89,10 @@ export async function sendPreDeadlineReminders(): Promise<number> {
       if (!manager) continue;
       const cutoffLocal = DateTime.fromJSDate(window.nextCutoffAtUtc).setZone(league.timezone).toFormat('cccc, LLL d, h:mm a ZZZZ');
       const tpl = reminderEmail({ recipientName: manager.alias ?? manager.name, dealershipName: dealership.alias ?? dealership.name, cutoffLocal, entryUrl: `${env.appBaseUrl}/enter` });
-      const result = await sendOnce({ leagueId: league.id, template: `reminder:${window.nextWindowDate}`, periodId: period.id, to: manager.email, ...tpl });
+      const send = { leagueId: league.id, template: `reminder:${window.nextWindowDate}`, periodId: period.id, ...tpl };
+      const result = await sendOnce({ ...send, to: manager.email });
       if (result === 'sent') sent++;
+      await ccExtraRecipients(league.id, 'reminder', dealership.id, send);
     }
   }
   return sent;

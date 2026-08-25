@@ -8,6 +8,7 @@ import { requireAuth, requireRole } from '../middleware.js';
 import { writeAudit } from '../audit.js';
 import { sendOnce } from '../email/send.js';
 import { trainingFlagEmail } from '../email/templates.js';
+import { ccExtraRecipients } from '../email/recipients.js';
 
 export const penaltiesRouter = Router();
 
@@ -97,13 +98,9 @@ penaltiesRouter.post(
         periodLabel: period.label,
         penaltyValue: body.value,
       });
-      await sendOnce({
-        leagueId: employee.leagueId,
-        template: 'training-flag',
-        periodId: period.id,
-        to: employee.email,
-        ...tpl,
-      });
+      const send = { leagueId: employee.leagueId, template: 'training-flag', periodId: period.id, ...tpl };
+      await sendOnce({ ...send, to: employee.email });
+      await ccExtraRecipients(employee.leagueId, 'training-flag', employee.dealershipId, send);
     }
 
     res.status(201).json({ penalty: row });

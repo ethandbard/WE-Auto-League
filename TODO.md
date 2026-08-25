@@ -7,16 +7,22 @@ re-run seed. Do not re-fix `email/send.ts` — the path is already
 
 ---
 
-## 1. Onboard Cloudflare Email Sending — blocked on permissions
+## 1. Onboard Cloudflare Email Sending — blocked on plan, not permissions
 
 Console transport is still live. Production `config.env` has `CF_EMAIL_FROM`
 set and `CF_EMAIL_ACCOUNT_ID` / `CF_EMAIL_API_TOKEN` empty.
 
-Wrangler and the Cloudflare API both return **Unauthorized [code: 2036]** for
-Email Sending with the current account token. A human must add Email Sending
-permission (or mint a scoped token) before any of these steps work.
+**Checked 2026-08-25 in the dashboard, not just via the API:** the
+Unauthorized [code: 2036] error isn't a token-permission gap — Email Sending
+(`/email-service/sending`) is gated behind the **Workers Paid** plan on
+account `f6afef234770add442ef630ebd2e82c9`, and this account is still on the
+free tier. The dashboard's only next step is "Purchase Workers Paid." That's
+a subscription purchase, so it needs the account owner to buy it directly —
+not something to do from an agent session. Ethan chose to hold off for now.
 
-1. Confirm Email Sending is allowed on account `f6afef234770add442ef630ebd2e82c9`.
+Once Workers Paid is purchased, resume here:
+
+1. Confirm Email Sending is enabled on account `f6afef234770add442ef630ebd2e82c9`.
 2. Check whether `_dmarc.ethandbard.com` or `_dmarc.auto.ethandbard.com` already
    exists — the zone is shared.
 3. Onboard `mail.auto.ethandbard.com` with `npx wrangler email sending enable`
@@ -40,30 +46,69 @@ Until this lands, do not switch production `AUTH_PROVIDER` off
 
 Use the `cloudflare-email-service` and `deploy-to-hetzner` skills.
 
-## 2. Verify a backup restore
+## 2. Verify a backup restore — done, but it uncovered two real bugs
 
-Operational only. No code.
+**Done 2026-08-25.** WE-Auto-League had **never actually been backed up**:
+`agent-skills/deploy-to-hetzner/inventory.json` (the source repo) already
+listed it, but the copy deployed to the VPS at
+`/opt/deploy-pipeline/skill/inventory.json` was stale and didn't — so the
+weekly cron silently skipped it, along with `notebox`, `ellmer-practice`, and
+`admin-panel`.
 
-Restore a nightly restic snapshot to a scratch Postgres instance and diff
-row counts against production. See the `deploy-to-hetzner` restore reference.
+Fixed:
+1. `inventory.json` gained a `db_user` field per postgres app (`pokemon_crm`,
+   `we_auto_league`) — `backup.sh`'s `dump_postgres` was hardcoded to
+   `-U pokemon_crm`, which would have produced a broken dump for any other
+   postgres app the day this ran for real.
+2. `backup.sh`'s `docker compose exec -T db pg_dump ...` had no `< /dev/null`,
+   so it inherited the enclosing `while read` loop's stdin — the
+   process-substitution stream driving that loop — and silently swallowed
+   every inventory line after the first postgres app. That's why `notebox`
+   and `ellmer-practice` were missing too, independent of the stale-inventory
+   bug.
+3. Synced the fixed `inventory.json` and `backup.sh` to
+   `/opt/deploy-pipeline/skill/` on the VPS and re-ran the backup. The latest
+   snapshot (`341b1d9b`) now includes `we-auto-league`, `notebox`, and
+   `ellmer-practice`.
 
-## 3. CC extra recipients on non-standings templates
+Restore drill: restored `we-auto-league`'s dump into a scratch `postgres:16`
+container (`restic-drill-pg`), compared `n_live_tup` per table against the
+live `we-auto-league-db` container — all 22 tables matched exactly. Scratch
+container and `/tmp/restic-drill` were cleaned up afterward.
 
-`email_recipients.templates` accepts `standings`, `reminder`, `late-penalty`,
-and `training-flag`. Only `standings` is sent today
-(`server/src/email/standingsMail.ts`). Wire the other three in
-`scheduler/jobs.ts` and `routes/penalties.ts`. Honour `dealershipId` when set.
+Both fixes are committed to the `agent-skills` repo, not just the VPS copy —
+reinstall (`./install.sh deploy-to-hetzner`) picks them up for other
+projects too.
 
-## 4. Fold in the Admin visual redesign if wanted
+## 3. CC extra recipients on non-standings templates — done
 
-A Claude Design canvas was requested and could not be opened from a
-sandboxed browser. Admin currently matches the Manage tab shell.
+**Done 2026-08-25.** Added `server/src/email/recipients.ts`
+(`ccExtraRecipients`) — queries `email_recipients` for rows subscribed to a
+given template where `dealershipId` is null (league-wide) or matches the
+send's store, and CCs each via the existing `sendOnce` idempotency path.
+Wired into `scheduler/jobs.ts` (`reminder`, `late-penalty`) and
+`routes/penalties.ts` (`training-flag`, scoped by the flagged employee's
+`dealershipId`). Typecheck and `npm test` both pass.
 
-Canvas:
-https://claude.ai/design/p/dc5ed2f6-4473-48c7-b73a-5d92bb1efc40?file=WE+Auto+League.dc.html&via=share
+## 4. Admin visual redesign — reviewed, nothing to fold in
 
-Keep the six-tab functional scope. Restyle only after viewing the canvas in
-a logged-in browser.
+**Checked 2026-08-25 in a logged-in browser.** The canvas
+(https://claude.ai/design/p/dc5ed2f6-4473-48c7-b73a-5d92bb1efc40?file=WE+Auto+League.dc.html&via=share)
+is one interactive prototype for all 8 screens, built by asking the client
+motifs/scope/density questions first. Its own answer for
+`entry_admin_theme` was **"Keep utilitarian"** — Enter, Manage, and Admin
+were deliberately left plain; only Home/Standings/Board/AdvisorCard/StoreView
+got the checkered banners, plate badges, podium blocks, gauges, and
+racing-stripe accents.
+
+The rendered Home artboard matches the live app almost element-for-element
+(same copy, leader card, quick-link grid, stats row), and its 4-step
+green→yellow→orange→red tier gradient matches `--color-tier-1..4` in
+`client/src/index.css` exactly — this redesign was already folded in by
+commit `4291c9c` ("Apply racing-theme redesign to Home/Standings/
+AdvisorCard/StoreView"). Admin intentionally still matches the Manage tab
+shell, which is the canvas's own call, not a gap. No further restyling
+needed.
 
 ## 5. Deferred until the client names their DMS
 
