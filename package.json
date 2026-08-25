@@ -1,0 +1,39 @@
+{
+  "name": "we-auto-league",
+  "private": true,
+  "version": "0.1.0",
+  "description": "A dashboard for running an auto group's service competition.",
+  "type": "module",
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c cyan,magenta \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "npm run dev --workspace server",
+    "dev:web": "npm run dev --workspace client",
+    "build": "npm run build --workspace server && npm run build --workspace client",
+    "setup": "npm run db:create && npm run db:migrate && npm run seed",
+    "db:create": "npm run db:create --workspace server",
+    "db:generate": "npm run db:generate --workspace server",
+    "db:migrate": "npm run db:migrate --workspace server",
+    "db:push": "npm run db:push --workspace server",
+    "db:studio": "npm run db:studio --workspace server",
+    "seed": "npm run seed --workspace server",
+    "test": "npm run test --workspace server",
+    "typecheck": "npm run typecheck --workspace server && npm run typecheck --workspace client"
+  },
+  "engines": {
+    "node": ">=20",
+    "npm": ">=10"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true,
+    "esbuild@0.18.20": true,
+    "esbuild@0.19.12": true,
+    "esbuild@0.28.2": true
+  }
+}

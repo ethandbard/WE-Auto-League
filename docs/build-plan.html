@@ -1,0 +1,669 @@
+<title>WE Auto League Build Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+  :root {
+    --ground:#F2F4F6; --surface:#FFFFFF; --surface-2:#E8ECF0; --surface-3:#DDE3E9;
+    --ink:#151B22; --ink-2:#49545F; --ink-3:#78848F;
+    --rule:#D2DAE1; --rule-2:#BAC5CE;
+    --accent:#0E5C8A; --accent-2:#1789C9; --accent-wash:#E2EEF6;
+    --good:#2C7A50; --good-wash:#DEEEE5;
+    --warn:#8E6208; --warn-wash:#F5EBD6;
+    --crit:#9C2F2F; --crit-wash:#F5E1E1;
+
+    --display:"Archivo","Helvetica Neue",Arial,sans-serif;
+    --body:"Source Serif 4",Georgia,"Times New Roman",serif;
+    --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Consolas,monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:#101418; --surface:#171D23; --surface-2:#1E252C; --surface-3:#28313A;
+      --ink:#E3E9EF; --ink-2:#A5B1BC; --ink-3:#78848F;
+      --rule:#2B343D; --rule-2:#3A454F;
+      --accent:#58B4E8; --accent-2:#8ACDF2; --accent-wash:#14293A;
+      --good:#5CBE8A; --good-wash:#15281F;
+      --warn:#D9A741; --warn-wash:#2C2415;
+      --crit:#E28585; --crit-wash:#2E1919;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:#101418; --surface:#171D23; --surface-2:#1E252C; --surface-3:#28313A;
+    --ink:#E3E9EF; --ink-2:#A5B1BC; --ink-3:#78848F;
+    --rule:#2B343D; --rule-2:#3A454F;
+    --accent:#58B4E8; --accent-2:#8ACDF2; --accent-wash:#14293A;
+    --good:#5CBE8A; --good-wash:#15281F;
+    --warn:#D9A741; --warn-wash:#2C2415;
+    --crit:#E28585; --crit-wash:#2E1919;
+  }
+
+  * { box-sizing:border-box; }
+
+  body {
+    background:var(--ground);
+    color:var(--ink);
+    font-family:var(--body);
+    font-size:17px;
+    line-height:1.62;
+    margin:0;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .shell { display:grid; grid-template-columns:230px minmax(0,1fr); gap:56px; max-width:1180px; margin:0 auto; padding:0 32px 120px; }
+  @media (max-width:1020px) { .shell { grid-template-columns:minmax(0,1fr); gap:0; padding:0 22px 90px; } .rail { display:none; } }
+
+  /* ---- left rail ---- */
+  .rail { position:sticky; top:0; align-self:start; height:100vh; overflow-y:auto; padding:38px 0; }
+  .rail-mark { font-family:var(--display); font-weight:700; font-size:13px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink); line-height:1.35; }
+  .rail-mark span { display:block; color:var(--accent); }
+  .rail nav { margin-top:26px; display:flex; flex-direction:column; gap:1px; border-left:1px solid var(--rule); }
+  .rail a { font-family:var(--display); font-size:12.5px; font-weight:500; letter-spacing:.02em; color:var(--ink-2); text-decoration:none; padding:5px 0 5px 14px; margin-left:-1px; border-left:1px solid transparent; }
+  .rail a:hover { color:var(--accent); border-left-color:var(--accent); }
+  .rail a:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+
+  /* ---- masthead ---- */
+  main { padding-top:52px; min-width:0; }
+  .eyebrow { font-family:var(--display); font-size:11px; font-weight:600; letter-spacing:.18em; text-transform:uppercase; color:var(--accent); margin:0 0 14px; }
+  h1 { font-family:var(--display); font-weight:700; font-size:clamp(34px,5.4vw,50px); line-height:1.04; letter-spacing:-.022em; margin:0; text-wrap:balance; }
+  .standfirst { font-size:19px; color:var(--ink-2); max-width:62ch; margin:18px 0 0; }
+  .byline { font-family:var(--mono); font-size:12px; color:var(--ink-3); margin-top:20px; letter-spacing:.01em; }
+
+  /* ---- glance strip ---- */
+  .glance { display:grid; grid-template-columns:repeat(auto-fit,minmax(126px,1fr)); gap:1px; background:var(--rule); border:1px solid var(--rule); margin:38px 0 0; }
+  .glance div { background:var(--surface); padding:14px 16px; }
+  .glance dt { font-family:var(--display); font-size:10.5px; font-weight:600; letter-spacing:.13em; text-transform:uppercase; color:var(--ink-3); margin:0 0 5px; }
+  .glance dd { font-family:var(--mono); font-size:21px; font-weight:500; margin:0; color:var(--ink); font-variant-numeric:tabular-nums; }
+  .glance dd small { font-family:var(--body); font-size:13px; color:var(--ink-2); }
+
+  /* ---- sections ---- */
+  section { margin-top:62px; scroll-margin-top:24px; }
+  h2 { font-family:var(--display); font-weight:700; font-size:26px; letter-spacing:-.012em; margin:0 0 6px; padding-bottom:11px; border-bottom:2px solid var(--ink); text-wrap:balance; }
+  h3 { font-family:var(--display); font-weight:600; font-size:17px; letter-spacing:.005em; margin:34px 0 8px; }
+  h4 { font-family:var(--display); font-weight:600; font-size:12px; letter-spacing:.11em; text-transform:uppercase; color:var(--ink-3); margin:26px 0 8px; }
+  p { margin:14px 0; max-width:68ch; }
+  a { color:var(--accent); text-decoration-thickness:1px; text-underline-offset:2px; }
+  strong { font-weight:600; }
+  code { font-family:var(--mono); font-size:.86em; background:var(--surface-2); padding:1px 5px; border-radius:2px; }
+  ul, ol { max-width:68ch; padding-left:20px; }
+  li { margin:7px 0; }
+  li::marker { color:var(--ink-3); }
+  hr { border:0; border-top:1px solid var(--rule); margin:34px 0; }
+
+  /* ---- tables ---- */
+  .scroller { overflow-x:auto; margin:20px 0; border:1px solid var(--rule); background:var(--surface); }
+  table { border-collapse:collapse; width:100%; font-size:14px; }
+  th, td { text-align:left; padding:8px 13px; border-bottom:1px solid var(--rule); vertical-align:top; }
+  thead th { font-family:var(--display); font-size:10.5px; font-weight:600; letter-spacing:.11em; text-transform:uppercase; color:var(--ink-2); background:var(--surface-2); border-bottom:1px solid var(--rule-2); white-space:nowrap; }
+  tbody tr:last-child td { border-bottom:0; }
+  .num { font-family:var(--mono); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .kbd { font-family:var(--mono); font-size:12.5px; color:var(--ink); }
+  td.field { font-family:var(--mono); font-size:12.5px; color:var(--accent); white-space:nowrap; }
+  tfoot td { font-family:var(--display); font-size:12px; font-weight:600; background:var(--surface-2); }
+
+  /* ---- formula block ---- */
+  .formula { background:var(--surface); border:1px solid var(--rule); border-left:3px solid var(--accent); padding:20px 22px; margin:22px 0; overflow-x:auto; }
+  .formula .lbl { font-family:var(--display); font-size:10.5px; font-weight:600; letter-spacing:.13em; text-transform:uppercase; color:var(--ink-3); margin-bottom:9px; }
+  .formula .eq { font-family:var(--mono); font-size:14px; line-height:1.85; color:var(--ink); white-space:nowrap; }
+  .formula .eq em { font-style:normal; color:var(--accent); }
+  .formula .note { font-size:14px; color:var(--ink-2); margin:12px 0 0; max-width:64ch; }
+
+  /* ---- verdict chips ---- */
+  .chip { display:inline-block; font-family:var(--display); font-size:10.5px; font-weight:600; letter-spacing:.09em; text-transform:uppercase; padding:2px 8px; border:1px solid; white-space:nowrap; }
+  .chip.ok { color:var(--good); border-color:var(--good); background:var(--good-wash); }
+  .chip.q { color:var(--warn); border-color:var(--warn); background:var(--warn-wash); }
+  .chip.risk { color:var(--crit); border-color:var(--crit); background:var(--crit-wash); }
+
+  /* ---- callout ---- */
+  .callout { background:var(--surface); border:1px solid var(--rule); padding:18px 20px; margin:22px 0; }
+  .callout.q { border-left:3px solid var(--warn); }
+  .callout p:first-child { margin-top:0; }
+  .callout p:last-child { margin-bottom:0; }
+
+  /* ---- question list ---- */
+  .qlist { list-style:none; padding:0; margin:22px 0; max-width:none; display:flex; flex-direction:column; gap:1px; background:var(--rule); border:1px solid var(--rule); }
+  .qlist li { background:var(--surface); margin:0; padding:16px 20px; display:grid; grid-template-columns:26px minmax(0,1fr); gap:14px; }
+  .qlist .n { font-family:var(--mono); font-size:13px; color:var(--ink-3); padding-top:2px; }
+  .qlist .q-body { min-width:0; }
+  .qlist .q-title { font-family:var(--display); font-weight:600; font-size:15px; margin:0 0 5px; }
+  .qlist .q-why { font-size:14.5px; color:var(--ink-2); margin:0; max-width:64ch; }
+  .qlist .q-why b { color:var(--ink); font-weight:600; }
+
+  /* ---- phases ---- */
+  .phases { display:flex; flex-direction:column; gap:1px; background:var(--rule); border:1px solid var(--rule); margin:22px 0; }
+  .phase { background:var(--surface); padding:18px 20px; display:grid; grid-template-columns:64px minmax(0,1fr); gap:18px; }
+  .phase .idx { font-family:var(--mono); font-size:12px; color:var(--ink-3); letter-spacing:.02em; }
+  .phase .idx b { display:block; font-family:var(--display); font-size:22px; font-weight:700; color:var(--accent); letter-spacing:-.02em; line-height:1.1; }
+  .phase-body { min-width:0; }
+  .phase h3 { margin:0 0 6px; font-size:16px; }
+  .phase p { margin:0 0 9px; font-size:15px; color:var(--ink-2); max-width:64ch; }
+  .phase ul { margin:0; font-size:14.5px; max-width:64ch; }
+  .phase li { margin:4px 0; color:var(--ink-2); }
+  .ships { font-family:var(--display); font-size:11px; font-weight:600; letter-spacing:.11em; text-transform:uppercase; color:var(--ink-3); margin-top:12px; }
+  .ships b { font-family:var(--body); font-size:14.5px; font-weight:600; letter-spacing:0; text-transform:none; color:var(--good); }
+
+  footer { margin-top:74px; padding-top:22px; border-top:1px solid var(--rule); font-family:var(--mono); font-size:12px; color:var(--ink-3); }
+  footer p { max-width:68ch; margin:6px 0; }
+
+  @media (prefers-reduced-motion:reduce) { * { animation:none !important; transition:none !important; } }
+</style>
+
+<div class="shell">
+
+  <aside class="rail">
+    <div class="rail-mark">WE Auto<span>League</span></div>
+    <nav>
+      <a href="#brief">The request</a>
+      <a href="#scoring">Scoring model</a>
+      <a href="#decisions">Decisions taken</a>
+      <a href="#questions">Open questions</a>
+      <a href="#arch">Architecture</a>
+      <a href="#data">Data model</a>
+      <a href="#surfaces">The four surfaces</a>
+      <a href="#integration">Integration seams</a>
+      <a href="#phases">Build phases</a>
+      <a href="#risks">Risks</a>
+      <a href="#scope">Out of scope</a>
+    </nav>
+  </aside>
+
+  <main>
+
+    <p class="eyebrow">Prototype build plan</p>
+    <h1>WE Auto League</h1>
+    <p class="standfirst">A dashboard for running an auto group's service competition: dealerships enter their numbers, the platform scores and ranks advisors and stores against monthly goals, and it publishes the standings and mails them out on schedule.</p>
+    <p class="byline">Drafted 24 Aug 2026 &nbsp;·&nbsp; Sources: client brief, June 2026 Victory Lane scoreboard, 9 screenshots of the incumbent tool</p>
+
+    <dl class="glance">
+      <div><dt>Dealerships</dt><dd>8</dd></div>
+      <div><dt>Advisors</dt><dd>45</dd></div>
+      <div><dt>Advisor cats</dt><dd>7 <small>+2 pending</small></dd></div>
+      <div><dt>Manager cats</dt><dd>4 <small>+2 pending</small></dd></div>
+      <div><dt>Cycle</dt><dd>Monthly</dd></div>
+      <div><dt>Entry</dt><dd>2&times;<small>/week</small></dd></div>
+    </dl>
+
+    <!-- ============================================ -->
+    <section id="brief">
+      <h2>What the client asked for</h2>
+
+      <p>The written brief is short. The real specification is in the artifacts: a printed <em>Victory Lane Race Standings</em> sheet for June 2026 produced by ORION Business Strategies Group, and screenshots of a competing product ("The Comp", by Chris Collins Inc) that the client evidently uses today and wants to better.</p>
+
+      <p>Pulling those together, the system has to do six things.</p>
+
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Requirement</th><th>From the brief</th><th>What it implies</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><b>Rank employees, then rank stores by those rankings</b></td>
+              <td>Verbatim</td>
+              <td>Two coupled leaderboards. A store's score depends on its advisors' scores, so one scoring pass must produce both.</td>
+            </tr>
+            <tr>
+              <td><b>Manual data entry, twice weekly, noon deadline</b></td>
+              <td>Verbatim</td>
+              <td>Submission windows with a hard cutoff in a named timezone. Missing the cutoff costs the store <span class="num">&minus;2</span> points.</td>
+            </tr>
+            <tr>
+              <td><b>Add, remove and hide employees</b></td>
+              <td>Verbatim</td>
+              <td>Hidden (PTO, sick) advisors are excluded from scoring without being deleted — history must survive.</td>
+            </tr>
+            <tr>
+              <td><b>Weighted categories, per-store monthly goals</b></td>
+              <td>Verbatim ("see example")</td>
+              <td>The example is the June sheet. Weights and goals are both data, not code. See <a href="#scoring">Scoring model</a>.</td>
+            </tr>
+            <tr>
+              <td><b>Training criteria flag</b></td>
+              <td>Verbatim</td>
+              <td>An advisor missing training loses <span class="num">25</span> points and is flagged on the report.</td>
+            </tr>
+            <tr>
+              <td><b>Emailed reports + a message board</b></td>
+              <td>Verbatim</td>
+              <td>Standings mail to every ranked advisor and every manager on the afternoon final numbers land. Announcements live in-app with read receipts.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>You noted the brief never says <em>how</em> users enter data. It doesn't — so the prototype covers all three plausible answers (web forms, spreadsheet upload, machine-to-machine push) behind one interface. That's <a href="#integration">Integration seams</a>.</p>
+    </section>
+
+    <!-- ============================================ -->
+    <section id="scoring">
+      <h2>Scoring model <span class="chip ok">Verified</span></h2>
+
+      <p>The June 2026 sheet is not just a design reference — it's a complete, self-checking specification. I reverse-engineered the arithmetic and it reproduces <strong>exactly</strong>: all 8 manager rows, every advisor row I transcribed, and every team score. Nothing here is inferred loosely; each rule below was confirmed to the cent against the printed figures.</p>
+
+      <h3>Advisor score</h3>
+
+      <div class="formula">
+        <div class="lbl">Per advisor, per month</div>
+        <div class="eq">points<sub>c</sub> &nbsp;=&nbsp; ( <em>actual</em><sub>c</sub> &divide; <em>goal</em><sub>store,c</sub> ) &times; <em>weight</em><sub>c</sub></div>
+        <div class="eq">score &nbsp;&nbsp;&nbsp;&nbsp;=&nbsp; &Sigma; points<sub>c</sub> &nbsp;&minus;&nbsp; penalties</div>
+        <p class="note">Weights sum to 100, so an advisor exactly on goal in every category scores 100. Attainment is <b>not capped</b> — the June sheet has advisors at 183% of a category goal, and Jem finished at 145.67.</p>
+      </div>
+
+      <p>Category weights, and the goals implied by dividing each printed value by its printed points:</p>
+
+      <div class="scroller">
+        <table>
+          <thead>
+            <tr><th>Advisor category</th><th>Weight</th><th>Unit</th><th>Goal basis</th><th>June 2026 goals observed</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>CSI 100's</td><td class="num">20</td><td>count</td><td>Per store</td><td class="num">4 · 8 · 15 · 25 · 30</td></tr>
+            <tr><td>ELR</td><td class="num">10</td><td>currency</td><td>Per store</td><td class="num">$180 · $200</td></tr>
+            <tr><td>CP $</td><td class="num">20</td><td>currency</td><td>Uniform</td><td class="num">$35,000</td></tr>
+            <tr><td>HPRO</td><td class="num">10</td><td>ratio</td><td>Per store</td><td class="num">1.60 · 1.80 · 2.20</td></tr>
+            <tr><td>Total $</td><td class="num">15</td><td>currency</td><td>Per store</td><td class="num">$100,000 · $120,000</td></tr>
+            <tr><td>WC</td><td class="num">15</td><td>count</td><td>Per store</td><td class="num">120 · 150 · 180</td></tr>
+            <tr><td>WC Conv</td><td class="num">10</td><td>percent</td><td>Uniform</td><td class="num">1.00</td></tr>
+          </tbody>
+          <tfoot><tr><td>Total</td><td class="num">100</td><td colspan="3"></td></tr></tfoot>
+        </table>
+      </div>
+
+      <p>Every implied goal landed on a round number — <span class="num">$34,997.94</span> through <span class="num">$35,005.14</span> across six stores for CP&nbsp;$, and so on. That is what a correct hypothesis looks like, and it also means <strong>goals are per store, per category, per month</strong>, with some categories happening to share one value league-wide. The data model has to carry all three levels.</p>
+
+      <h3>Team score</h3>
+
+      <div class="formula">
+        <div class="lbl">Per dealership, per month</div>
+        <div class="eq">teamScore &nbsp;=&nbsp; mean( <em>advisor scores</em> at that store )</div>
+        <p class="note">Confirmed to the cent on six dealerships — Volkswagen 105.07, Kia 101.45, Nissan SP 101.31, Chevy Cadillac 103.33, Toyota STR 101.13, Nissan 77.12. The remaining two agree to within transcription noise on the scan.</p>
+      </div>
+
+      <p>This is the coupling between the two leaderboards, and it's why hiding an advisor for PTO genuinely matters: removing one advisor moves the store's score. <strong>Which advisors count toward the mean is a scoring input, not a display filter</strong> — that decision has to be recorded and auditable.</p>
+
+      <h3>Manager / dealership score</h3>
+
+      <div class="formula">
+        <div class="lbl">Per dealership, per month</div>
+        <div class="eq">points<sub>c</sub> &nbsp;=&nbsp; <em>attainment</em><sub>c</sub> &times; <em>weight</em><sub>c</sub> &divide; 100</div>
+        <div class="eq">score &nbsp;&nbsp;&nbsp;&nbsp;=&nbsp; &Sigma; points<sub>c</sub> &nbsp;&minus;&nbsp; penalty</div>
+        <p class="note">Manager categories arrive already expressed as percent-of-goal, so no goal division happens here. Team Score feeds in as its own percentage-like number.</p>
+      </div>
+
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Manager category</th><th>Weight</th><th>Source</th></tr></thead>
+          <tbody>
+            <tr><td>% CSI Goal</td><td class="num">30</td><td>Store-level entry</td></tr>
+            <tr><td>% CP Goal</td><td class="num">20</td><td>Store-level entry</td></tr>
+            <tr><td>% Gross Goal</td><td class="num">20</td><td>Store-level entry</td></tr>
+            <tr><td>Team Score</td><td class="num">30</td><td>Derived — mean of the store's advisors</td></tr>
+          </tbody>
+          <tfoot><tr><td>Total</td><td class="num">100</td><td></td></tr></tfoot>
+        </table>
+      </div>
+
+      <h4>Worked proof — BHoosiers, Nissan SP, the one store carrying a penalty</h4>
+
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Category</th><th>Attainment</th><th>Weight</th><th>Calculated</th><th>Printed</th></tr></thead>
+          <tbody>
+            <tr><td>% CSI Goal</td><td class="num">84.11</td><td class="num">30</td><td class="num">25.233</td><td class="num">25.23</td></tr>
+            <tr><td>% CP Goal</td><td class="num">95.19</td><td class="num">20</td><td class="num">19.038</td><td class="num">19.04</td></tr>
+            <tr><td>% Gross Goal</td><td class="num">109.68</td><td class="num">20</td><td class="num">21.936</td><td class="num">21.94</td></tr>
+            <tr><td>Team Score</td><td class="num">101.31</td><td class="num">30</td><td class="num">30.393</td><td class="num">30.39</td></tr>
+            <tr><td>Penalty</td><td colspan="2"></td><td class="num">&minus;5.00</td><td class="num">5</td></tr>
+          </tbody>
+          <tfoot><tr><td>Score</td><td colspan="2"></td><td class="num">91.60</td><td class="num">91.60</td></tr></tfoot>
+        </table>
+      </div>
+
+      <h3>Penalties</h3>
+      <ul>
+        <li><b>Late submission</b> — <span class="num">&minus;2</span> from the store score, per missed noon deadline. Applied automatically by the scheduler, not by hand.</li>
+        <li><b>Training incomplete</b> — <span class="num">&minus;25</span> from the advisor's score, plus a flag on the report.</li>
+        <li><b>Manual</b> — commissioners can post an adjustment with a reason. BHoosiers' <span class="num">&minus;5</span> in June is a multiple of the late penalty, so it is likely two-and-a-half late weeks or a discretionary call; either way the model needs a free-form penalty ledger, not just a counter.</li>
+      </ul>
+
+      <h3>One trap the sheet exposes</h3>
+
+      <p><strong>Values are printed at two decimals but scored at full precision.</strong> Quiet Storm's WC Conv prints as <span class="num">0.67</span> and scores <span class="num">6.65</span> — which is <span class="num">0.665</span> exactly. Round the input to what the cell displays and the score comes out wrong, and only on this one category, because the other six carry enough resolution at their weights to survive it.</p>
+
+      <p>So: store raw values at full precision and round only at render. In practice <span class="kbd">numeric(12,4)</span> holds every unit on this sheet. It's a small thing that would have been a genuinely nasty bug — a scoring discrepancy appearing on one category, for some advisors, in a system people are paid against.</p>
+
+      <div class="callout">
+        <p><strong>This gives us a golden-master test.</strong> The June 2026 sheet is committed as a fixture with the expected points for every category: seed it, run the engine, assert the output matches the printed page to the cent. Any future change that would break a published standing fails CI. That test gets written in Phase 2, before any UI sits on top of it — and the precision trap above is exactly the kind of thing it exists to catch.</p>
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <section id="decisions">
+      <h2>Decisions taken</h2>
+
+      <p>Four calls I'm making so the build isn't blocked. Each is reversible, and each is flagged to the client rather than buried.</p>
+
+      <h4>1 — Weighted goal attainment, not the incumbent's rank-sum</h4>
+      <p>The screenshots show "The Comp" scoring by <em>summing category ranks</em> (lowest total wins). The client's own Victory Lane sheet scores by <em>weighted attainment against goal</em>. The brief says "the categories would be weighted" and "we will need to input monthly goal for the scoring to take place" — that's the Victory Lane model. I'm treating the screenshots as feature and UI reference, not as the scoring spec. The engine stays pluggable so rank-sum can be added as an alternative if they want both.</p>
+
+      <h4>2 — Categories are configuration, not columns</h4>
+      <p>The handwritten margin notes on the June sheet add <em>C/P RO's YOY</em> and <em>Video MPI eSurveys</em> to the manager board and <em>Video Sent %</em> and <em>Video Viewed %</em> to the advisor board. The incumbent's notifications also show a <em>Managers Choice</em> category whose meaning rotates monthly ("August Managers Choice will be Fuel Service"). Categories therefore change often. They live in a table with weights versioned per period, so adding one is an admin action, not a deployment.</p>
+
+      <h4>3 — Multi-tenant and multi-league from the first migration</h4>
+      <p>The incumbent has a league selector ("Asian Big Dog League") and separate prize pools per league. Retrofitting a tenant boundary later is expensive and error-prone; adding the columns now costs almost nothing. This is also what makes the enterprise story credible.</p>
+
+      <h4>4 — Published standings are immutable snapshots</h4>
+      <p>Once a month's standings are mailed, they are a record people are paid against. Late-arriving data must never silently rewrite a published board. Each scoring run stores its inputs, the engine version, and the result; corrections are issued as a new, visibly-labelled revision.</p>
+    </section>
+
+    <!-- ============================================ -->
+    <section id="questions">
+      <h2>Open questions <span class="chip ok">Decided</span></h2>
+
+      <p>Eight things the brief left open. All eight are now <strong>decided</strong> so the build can move, and every one is implemented as a league setting or a toggle rather than a hardcoded rule — so changing any of them is a configuration change, not a rewrite. They are listed here as assumptions for the client to correct, not as blockers.</p>
+
+      <ol class="qlist">
+        <li><span class="n">01</span><div class="q-body">
+          <p class="q-title">What do the twice-weekly submissions contain?</p>
+          <p class="q-why">Month-to-date running totals, or that period's increment? <b>Assuming MTD totals</b> — the last submission of the month then <em>is</em> the final. Interim entries drive a provisional live leaderboard and the on-time check; only the month-end final scores.</p>
+        </div></li>
+        <li><span class="n">02</span><div class="q-body">
+          <p class="q-title">Which two days, and in which timezone?</p>
+          <p class="q-why">"Noon on that day" needs a named pair of weekdays and a zone. The incumbent's notices say PST. <b>Assuming a per-league setting</b>, defaulting to Mon/Thu at 12:00 America/Los_Angeles.</p>
+        </div></li>
+        <li><span class="n">03</span><div class="q-body">
+          <p class="q-title">Does the &minus;2 late penalty stack?</p>
+          <p class="q-why">Two misses in a month — is that &minus;2 or &minus;4? <b>Assuming it stacks per missed window</b>, which is what makes BHoosiers' &minus;5 hard to reconstruct and is worth confirming against their June records.</p>
+        </div></li>
+        <li><span class="n">04</span><div class="q-body">
+          <p class="q-title">Do the four new handwritten categories add or replace?</p>
+          <p class="q-why">The note beside Team Score reads "4th category — Video MPI eSurveys", but there are already four manager categories. If these are additions, all weights need restating so each board still totals 100.</p>
+        </div></li>
+        <li><span class="n">05</span><div class="q-body">
+          <p class="q-title">When an advisor is hidden mid-month, what happens to the store?</p>
+          <p class="q-why">Excluded from the team-score mean entirely, or included at their partial numbers? <b>Assuming full exclusion</b> for any month they're hidden, matching the incumbent's rule that two-plus weeks off the drive removes them.</p>
+        </div></li>
+        <li><span class="n">06</span><div class="q-body">
+          <p class="q-title">Which of the incumbent's eligibility rules carry over?</p>
+          <p class="q-why">Their rulebook has a 60-day new-hire grace period, a floater-advisor rule, and a minimum of two advisors for a manager to be eligible to win. Sensible rules; not in the brief. <b>Assuming they carry over</b>, implemented as toggles.</p>
+        </div></li>
+        <li><span class="n">07</span><div class="q-body">
+          <p class="q-title">Who is allowed to enter data for a store?</p>
+          <p class="q-why">Manager only, or any delegate? This drives the role model and the audit trail. <b>Assuming the manager plus named delegates</b>, with every write attributed.</p>
+        </div></li>
+        <li><span class="n">08</span><div class="q-body">
+          <p class="q-title">Which sending domain, and does verification stay manual?</p>
+          <p class="q-why">The prototype mails from a subdomain of <span class="kbd">ethandbard.com</span>. Production needs the client's domain with SPF, DKIM and DMARC. Separately, their rules require the monthly winner to submit DMS reports as proof — <b>assuming that stays a human process</b>, with the platform only storing the attachments.</p>
+        </div></li>
+      </ol>
+    </section>
+
+    <!-- ============================================ -->
+    <section id="arch">
+      <h2>Architecture</h2>
+
+      <p>This matches the stack already running on your VPS, so there's nothing novel in the deployment path and the operational lessons already learned carry straight over.</p>
+
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Layer</th><th>Choice</th><th>Why this one</th></tr></thead>
+          <tbody>
+            <tr><td>Frontend</td><td class="kbd">Vite 6 · React 18 · TypeScript · Tailwind v4</td><td>House standard</td></tr>
+            <tr><td>Charts</td><td class="kbd">Recharts 2</td><td>House standard; rank-movement and attainment trends</td></tr>
+            <tr><td>Backend</td><td class="kbd">Node 20 · Express 4 · ESM · tsx</td><td>House standard</td></tr>
+            <tr><td>Database</td><td class="kbd">PostgreSQL 16</td><td>House standard. Numeric columns for money — never floats</td></tr>
+            <tr><td>ORM</td><td class="kbd">Drizzle + drizzle-kit</td><td>House standard; migrations committed</td></tr>
+            <tr><td>Validation</td><td class="kbd">Zod</td><td>Every request parsed before use; doubles as the import validator</td></tr>
+            <tr><td>Scheduling</td><td class="kbd">node-cron + Postgres advisory lock</td><td>The lock is the point — see below</td></tr>
+            <tr><td>Email</td><td class="kbd">Cloudflare Email Sending (REST)</td><td>Already on Cloudflare; no new vendor</td></tr>
+            <tr><td>PDF / print</td><td class="kbd">CSS print stylesheet, headless render</td><td>The Victory Lane sheet is a physical artifact people pin up</td></tr>
+            <tr><td>Packaging</td><td class="kbd">Multi-stage Docker, app + db on edge/internal</td><td>Mirrors <span class="kbd">pokemon-crm</span></td></tr>
+            <tr><td>Publishing</td><td class="kbd">Cloudflare named tunnel &rarr; ethandbard.com</td><td>Existing shared tunnel</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Two things worth designing deliberately</h3>
+
+      <p><strong>Scheduled jobs must be idempotent.</strong> This app's scheduler sends payroll-adjacent email and applies point penalties. A duplicate container or a redeploy that fires the same job twice is not a cosmetic bug — it double-penalises a store or mails two conflicting standings. Every scheduled run takes a Postgres advisory lock, and every send carries an idempotency key of <span class="kbd">(template, period, recipient)</span> that the mail log enforces.</p>
+
+      <p><strong>Auth is behind an interface from day one.</strong> The prototype uses app-native sessions with emailed magic links — no passwords to store, and the brief already requires an email on every profile. For an enterprise deployment the same interface accepts a trusted identity header from Cloudflare Access, so the app moves onto corporate SSO without touching route code.</p>
+    </section>
+
+    <!-- ============================================ -->
+    <section id="data">
+      <h2>Data model</h2>
+
+      <p>Fifteen tables. The shape follows from the scoring model: goals and weights are per-period data, participation is a recorded decision, and computed scores are stored rather than derived on read.</p>
+
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Table</th><th>Holds</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td class="field">organizations</td><td>Tenant boundary</td><td>Every row below is scoped to one</td></tr>
+            <tr><td class="field">leagues</td><td>A competition + its settings</td><td>Timezone, submission days, cutoff, penalty values</td></tr>
+            <tr><td class="field">periods</td><td>Contest months + submission windows</td><td>Status: open / locked / published</td></tr>
+            <tr><td class="field">dealerships</td><td>Store, brand, alias</td><td>Alias is what shows on the board</td></tr>
+            <tr><td class="field">employees</td><td>Advisors and managers</td><td>Email, alias, avatar, role, hire date</td></tr>
+            <tr><td class="field">participation</td><td>Who counts, per period</td><td>Eligible / hidden / terminated + reason + who decided</td></tr>
+            <tr><td class="field">categories</td><td>Scoring categories</td><td>Scope, unit, direction, active range</td></tr>
+            <tr><td class="field">category_weights</td><td>Weight, versioned per period</td><td>Constraint: must total 100 per scope</td></tr>
+            <tr><td class="field">goals</td><td>Target per store / category / period</td><td>League default, store override</td></tr>
+            <tr><td class="field">submissions</td><td>One filing for one window</td><td>Who, when, on time or late, draft or final</td></tr>
+            <tr><td class="field">metric_values</td><td>The numbers themselves</td><td>Numeric, never float</td></tr>
+            <tr><td class="field">penalties</td><td>Point adjustments</td><td>Automatic and manual, always with a reason</td></tr>
+            <tr><td class="field">scores</td><td>Computed results</td><td>Category breakdown, total, position, engine version</td></tr>
+            <tr><td class="field">announcements</td><td>Message board + read receipts</td><td>Mirrors the incumbent's notifications screen</td></tr>
+            <tr><td class="field">email_log</td><td>Every send</td><td>Idempotency key, template, status</td></tr>
+            <tr><td class="field">audit_log</td><td>Every write</td><td>Actor, before, after</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>The <span class="kbd">participation</span> table is the one that's easy to get wrong. "Hide this advisor" reads like a UI toggle, but because team score is a mean, hiding somebody changes their manager's score and therefore the store's rank. It belongs in the scored record with an author and a timestamp, not in a boolean on the employee row.</p>
+    </section>
+
+    <!-- ============================================ -->
+    <section id="surfaces">
+      <h2>The four surfaces</h2>
+
+      <h3>Enter</h3>
+      <p>A per-store grid for the current window: one row per advisor, one column per category, last-saved timestamp on each row — the shape the incumbent already trained these managers on. Above it, the store-level fields for the manager board. A countdown to the cutoff, and an explicit warning that submitting after noon costs two points. Paste-from-spreadsheet works on the grid, since these numbers come out of a DMS report today.</p>
+
+      <h3>Manage</h3>
+      <p>Roster (add, remove, hide with a reason, restore), monthly goals with carry-forward from last month so nobody retypes 56 numbers, category and weight editing with a live "must total 100" check, the training-criteria flag, and the penalty ledger. Every screen writes to the audit log.</p>
+
+      <h3>See</h3>
+      <p>The Victory Lane board, faithful to the printed sheet — position colour running green to red, best and worst in each category highlighted, both tables on one page — because that artifact is what the client already circulates, and matching it is how the tool earns trust in week one. It prints to a single page. Alongside it: an advisor's personal card showing their categories, their gap to the next position, and what one more of each unit would be worth; a manager's store view; and trend charts across periods.</p>
+
+      <h3>Communicate</h3>
+      <p>Templated mail for the monthly standings, the pre-deadline reminder, the late-penalty notice, the training flag, and announcements. Scheduled per league, editable in the admin UI, and every template previewable against real data before it sends. Administrators can also trigger any of them on demand — with a recipient count and a confirmation step, because "send to all 53 people" deserves one.</p>
+    </section>
+
+    <!-- ============================================ -->
+    <section id="integration">
+      <h2>Integration seams</h2>
+
+      <p>You asked that the prototype be adaptable to an enterprise network without knowing what the client's internal tooling is. The way to buy that option cheaply is to make manual entry <em>one implementation of an interface</em> rather than the only path in.</p>
+
+      <div class="formula">
+        <div class="lbl">One interface, four implementations</div>
+        <div class="eq"><em>MetricSource</em>.submit( period, store, rows[] ) &rarr; ValidationResult</div>
+        <p class="note">Every path lands in the same validator, the same audit log and the same submission record. A number pushed by a machine is indistinguishable downstream from one typed by a manager, except in its provenance field.</p>
+      </div>
+
+      <ul>
+        <li><b>Manual entry</b> — the web grid. The baseline, and the only one the prototype needs to be useful.</li>
+        <li><b>File import</b> — CSV or XLSX with column mapping, a validation preview, and a diff against what's already filed. This is the realistic bridge, because these figures live in DMS exports today.</li>
+        <li><b>REST API</b> — scoped keys per store. What an internal script or an RPA job would call.</li>
+        <li><b>MCP server</b> — the same write operations exposed as tools, so the client's own agents can file numbers, query standings, or post announcements. Worth building in the prototype precisely because it is cheap once the interface exists, and it's the concrete answer when they ask whether this fits their AI tooling.</li>
+      </ul>
+
+      <p>A <span class="kbd">DmsAdapter</span> stub sits alongside these with the shape a Reynolds &amp; Reynolds or CDK pull would take. It stays unimplemented until somebody can tell us what they actually run — but its presence makes the integration conversation concrete instead of hypothetical.</p>
+    </section>
+
+    <!-- ============================================ -->
+    <section id="phases">
+      <h2>Build phases</h2>
+
+      <p>Ordered by dependency and by risk retired per unit of work. The scoring engine comes before any interface, because it's the part with a test oracle and the part everything else assumes.</p>
+
+      <div class="phases">
+
+        <div class="phase"><div class="idx"><b>1</b>Foundation</div><div class="phase-body">
+          <h3>Scaffold and schema</h3>
+          <p>Workspace repo, Docker, Postgres, Drizzle migrations, auth, roles, audit log.</p>
+          <ul>
+            <li>All 16 tables, migrations committed</li>
+            <li>Magic-link sessions behind the auth interface</li>
+            <li>Seed script loading the June 2026 sheet: 8 stores, 45 advisors, goals, weights</li>
+          </ul>
+          <p class="ships">Ships → <b>a running app with real data and nothing to look at</b></p>
+        </div></div>
+
+        <div class="phase"><div class="idx"><b>2</b>Core</div><div class="phase-body">
+          <h3>Scoring engine + golden master</h3>
+          <p>The pure functions, and the test that proves them.</p>
+          <ul>
+            <li>Advisor, team and manager scoring as versioned pure functions</li>
+            <li>Eligibility rules: hidden, terminated, grace period, two-advisor minimum</li>
+            <li>Penalty ledger applied at score time</li>
+            <li>Golden-master test asserting the June output to the cent</li>
+          </ul>
+          <p class="ships">Ships → <b>the highest-risk part of the system, proven correct</b></p>
+        </div></div>
+
+        <div class="phase"><div class="idx"><b>3</b>Input</div><div class="phase-body">
+          <h3>Data entry and deadlines</h3>
+          <ul>
+            <li>Per-store entry grid with paste support and per-row save state</li>
+            <li>Submission windows, cutoffs, automatic late detection and penalty</li>
+            <li>CSV / XLSX import with mapping and validation preview</li>
+          </ul>
+          <p class="ships">Ships → <b>a store can file a month end to end</b></p>
+        </div></div>
+
+        <div class="phase"><div class="idx"><b>4</b>Admin</div><div class="phase-body">
+          <h3>Roster, goals, categories</h3>
+          <ul>
+            <li>Roster CRUD, hide-with-reason, restore</li>
+            <li>Goal entry with carry-forward; bulk edit</li>
+            <li>Category and weight management with the totals-100 guard</li>
+            <li>Training flags and manual penalties</li>
+          </ul>
+          <p class="ships">Ships → <b>the client can run a month without us</b></p>
+        </div></div>
+
+        <div class="phase"><div class="idx"><b>5</b>Output</div><div class="phase-body">
+          <h3>Standings and dashboards</h3>
+          <ul>
+            <li>Victory Lane board, screen and print, matching the printed sheet</li>
+            <li>Advisor card, manager store view, trend charts</li>
+            <li>Admin compliance view: who filed late, who's flagged, what looks wrong</li>
+          </ul>
+          <p class="ships">Ships → <b>the thing the client recognises</b></p>
+        </div></div>
+
+        <div class="phase"><div class="idx"><b>6</b>Comms</div><div class="phase-body">
+          <h3>Email and message board</h3>
+          <ul>
+            <li>Templates, previews, the send log with idempotency keys</li>
+            <li>Scheduler with advisory locking; per-league cron rules</li>
+            <li>Announcements with read receipts</li>
+            <li>Administrator send-now with recipient count and confirmation</li>
+          </ul>
+          <p class="ships">Ships → <b>the loop closes; the month runs itself</b></p>
+        </div></div>
+
+        <div class="phase"><div class="idx"><b>7</b>Seams</div><div class="phase-body">
+          <h3>API and MCP</h3>
+          <ul>
+            <li>Scoped API keys, documented REST surface</li>
+            <li>MCP server over the same operations</li>
+            <li><span class="kbd">DmsAdapter</span> stub and integration notes</li>
+          </ul>
+          <p class="ships">Ships → <b>the enterprise conversation has something to point at</b></p>
+        </div></div>
+
+        <div class="phase"><div class="idx"><b>8</b>Deploy</div><div class="phase-body">
+          <h3>Ship and harden</h3>
+          <ul>
+            <li>Hetzner container behind the shared tunnel</li>
+            <li>SPF / DKIM / DMARC for the sending subdomain</li>
+            <li>Nightly database backup with a tested restore</li>
+            <li>Health checks, structured logs, error alerting</li>
+            <li><span class="kbd">CLAUDE.md</span>, <span class="kbd">README</span>, runbook, client walkthrough</li>
+          </ul>
+          <p class="ships">Ships → <b>a live URL and a demo</b></p>
+        </div></div>
+
+      </div>
+
+      <p>Phases 1 and 2 are the ones worth not rushing. After Phase 2 the risk profile drops sharply, because everything remaining is interface work over a proven core. A useful demo exists at the end of Phase 5; the system is genuinely operable at the end of Phase 6.</p>
+    </section>
+
+    <!-- ============================================ -->
+    <section id="risks">
+      <h2>Risks</h2>
+
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Risk</th><th></th><th>Mitigation</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><b>Goal-entry burden</b><br>8 stores &times; 7 categories, monthly, is 56 numbers before anyone competes</td>
+              <td><span class="chip risk">High</span></td>
+              <td>Carry-forward from last month, league-level defaults with store overrides, bulk paste. If goal entry is tedious the whole system stalls in week one.</td>
+            </tr>
+            <tr>
+              <td><b>Scoring disputes</b><br>Money and pride ride on these numbers</td>
+              <td><span class="chip risk">High</span></td>
+              <td>Immutable published snapshots, full audit trail, and a per-advisor breakdown showing exactly how each point was earned.</td>
+            </tr>
+            <tr>
+              <td><b>Duplicate scheduled sends</b><br>Double penalties or conflicting standings</td>
+              <td><span class="chip q">Medium</span></td>
+              <td>Advisory locks plus idempotency keys, designed in at Phase 6 rather than patched after.</td>
+            </tr>
+            <tr>
+              <td><b>Employment-adjacent data</b><br>Named individuals, ranked, tied to pay</td>
+              <td><span class="chip q">Medium</span></td>
+              <td>Role-scoped access, audited reads on sensitive views, a retention policy, and no personal data in URLs or logs. Worth raising with the client explicitly.</td>
+            </tr>
+            <tr>
+              <td><b>Email deliverability</b><br>Standings that land in spam are standings nobody sees</td>
+              <td><span class="chip q">Medium</span></td>
+              <td>Proper SPF / DKIM / DMARC in Phase 8; in-app standings as the source of truth with mail as notification.</td>
+            </tr>
+            <tr>
+              <td><b>Unknown internal tooling</b><br>We're designing integration blind</td>
+              <td><span class="chip q">Medium</span></td>
+              <td>The <span class="kbd">MetricSource</span> interface means the answer changes an adapter, not the application.</td>
+            </tr>
+            <tr>
+              <td><b>Scoring spec drifts</b><br>Six new categories are already pencilled in the margins</td>
+              <td><span class="chip ok">Handled</span></td>
+              <td>Categories and weights are data. Adding one is an admin action.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <section id="scope">
+      <h2>Out of scope for the prototype</h2>
+      <ul>
+        <li><b>Cash prize disbursement.</b> The incumbent's rules pay out $250 / $100 / $50 / $35 / $25 and restrict prizes outside the US. The platform records winners and prize tiers; it does not move money.</li>
+        <li><b>Live DMS integration.</b> Adapter shape only, until somebody names the system.</li>
+        <li><b>Native mobile apps.</b> The web UI is responsive; managers will file from a desk.</li>
+        <li><b>Historical backfill.</b> June 2026 loads as a fixture. Importing prior seasons is a separate conversation once the import path exists.</li>
+        <li><b>The client's own domain and branding.</b> The prototype lives on a subdomain of <span class="kbd">ethandbard.com</span> under a racing-themed identity derived from their existing sheet.</li>
+      </ul>
+    </section>
+
+    <footer>
+      <p>Source materials: Ethan Project.docx · Victory Lane Race Standings, June 2026 (ORION Business Strategies Group) · 9 screenshots of "The Comp" (Chris Collins Inc) · archived in <span class="kbd">WE-Auto-League/request_assets</span></p>
+      <p>Scoring model verified against the June 2026 sheet — 8 of 8 manager rows, 6 of 6 sampled advisor rows, 6 of 6 cleanly-transcribed team scores.</p>
+    </footer>
+
+  </main>
+</div>

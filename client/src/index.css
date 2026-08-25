@@ -1,0 +1,127 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-display: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+  --font-body:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+
+  --color-ground: #f4f6f8;
+  --color-surface: #ffffff;
+  --color-surface-2: #eaf0f4;
+  --color-surface-3: #dde6ec;
+  --color-ink: #12181f;
+  --color-ink-2: #4a5a68;
+  --color-ink-3: #7c8a97;
+  --color-hairline: #dbe3e9;
+  --color-hairline-strong: #c3ced6;
+
+  --color-brand: #0e5c8a;
+  --color-brand-strong: #0a4568;
+  --color-brand-wash: #e2eef6;
+
+  --color-good: #1f7a4d;
+  --color-good-wash: #e0f0e7;
+  --color-warn: #b8790a;
+  --color-warn-wash: #f7ecd8;
+  --color-crit: #b23a3a;
+  --color-crit-wash: #f6e2e2;
+  --color-gold: #a9790a;
+  --color-gold-wash: #f8efd9;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-ground: #0f1418;
+    --color-surface: #171e24;
+    --color-surface-2: #1e2730;
+    --color-surface-3: #29343e;
+    --color-ink: #e7edf2;
+    --color-ink-2: #a3b2bd;
+    --color-ink-3: #74838e;
+    --color-hairline: #2a343d;
+    --color-hairline-strong: #3a4650;
+
+    --color-brand: #5fb2e0;
+    --color-brand-strong: #8ccdf0;
+    --color-brand-wash: #16293a;
+
+    --color-good: #57bd8a;
+    --color-good-wash: #14261d;
+    --color-warn: #d9a441;
+    --color-warn-wash: #2a2313;
+    --color-crit: #e28585;
+    --color-crit-wash: #2c1919;
+    --color-gold: #d6b158;
+    --color-gold-wash: #2a2313;
+  }
+}
+:root[data-theme='dark'] {
+  --color-ground: #0f1418;
+  --color-surface: #171e24;
+  --color-surface-2: #1e2730;
+  --color-surface-3: #29343e;
+  --color-ink: #e7edf2;
+  --color-ink-2: #a3b2bd;
+  --color-ink-3: #74838e;
+  --color-hairline: #2a343d;
+  --color-hairline-strong: #3a4650;
+  --color-brand: #5fb2e0;
+  --color-brand-strong: #8ccdf0;
+  --color-brand-wash: #16293a;
+  --color-good: #57bd8a;
+  --color-good-wash: #14261d;
+  --color-warn: #d9a441;
+  --color-warn-wash: #2a2313;
+  --color-crit: #e28585;
+  --color-crit-wash: #2c1919;
+  --color-gold: #d6b158;
+  --color-gold-wash: #2a2313;
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  margin: 0;
+  background: var(--color-ground);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+.font-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Signature: a tiny checkered-flag corner, reserved for the #1 position on a leaderboard. */
+.checker-corner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  background-image:
+    linear-gradient(45deg, currentColor 25%, transparent 25%, transparent 75%, currentColor 75%),
+    linear-gradient(45deg, currentColor 25%, transparent 25%, transparent 75%, currentColor 75%);
+  background-size: 7px 7px;
+  background-position:
+    0 0,
+    3.5px 3.5px;
+  opacity: 0.85;
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

@@ -1,0 +1,25 @@
+# Secrets -- never in an image layer
+config.env
+.env
+*.secrets.md
+
+# State the VPS owns
+data/
+
+# Version control and local tooling
+.git/
+.github/
+.claude/
+.vscode/
+.idea/
+
+# Build artifacts and dependency caches, rebuilt inside the image
+node_modules/
+server/node_modules/
+client/node_modules/
+server/dist/
+client/dist/
+client/dist-ssr/
+
+docs/
+request_assets/

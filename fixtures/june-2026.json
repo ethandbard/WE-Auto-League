@@ -1,0 +1,107 @@
+{
+  "_comment": "Golden-master fixture. Transcribed from request_assets/WE Auto league idea_scanned document of the printed out scoreboards.pdf (Victory Lane Race Standings, June 2026, ORION Business Strategies Group). Every figure here was verified to reproduce the printed output exactly. Do not edit values to make a test pass.",
+  "period": "2026-06",
+  "league": "WE Auto League",
+
+  "weights": {
+    "advisor": { "csi100s": 20, "elr": 10, "cpDollars": 20, "hpro": 10, "totalDollars": 15, "wc": 15, "wcConv": 10 },
+    "manager": { "csiGoalPct": 30, "cpGoalPct": 20, "grossGoalPct": 20, "teamScore": 30 }
+  },
+
+  "goals": {
+    "_comment": "Derived by dividing each printed value by its printed points. All six stores landed on round numbers, which is what confirms the formula. Stores not listed were not transcribed in full - derive them the same way when transcribing the remaining rows.",
+    "Toyota PA":      { "csi100s": 30, "elr": 180, "cpDollars": 35000, "hpro": 1.80, "totalDollars": 100000, "wc": 180, "wcConv": 1.00 },
+    "Toyota STR":     { "csi100s": 30, "elr": 180, "cpDollars": 35000, "hpro": null, "totalDollars": null,   "wc": null, "wcConv": 1.00 },
+    "Toyota VA":      { "csi100s": 30, "elr": 200, "cpDollars": 35000, "hpro": 1.60, "totalDollars": 100000, "wc": 180, "wcConv": 1.00 },
+    "Volkswagen":     { "csi100s": 4,  "elr": 200, "cpDollars": 35000, "hpro": 2.20, "totalDollars": 120000, "wc": 120, "wcConv": 1.00 },
+    "Nissan SP":      { "csi100s": 8,  "elr": 200, "cpDollars": 35000, "hpro": 1.80, "totalDollars": 120000, "wc": 150, "wcConv": 1.00 },
+    "Nissan":         { "csi100s": 8,  "elr": null, "cpDollars": 35000, "hpro": null, "totalDollars": null,  "wc": null, "wcConv": 1.00 },
+    "Kia":            { "csi100s": 15, "elr": 200, "cpDollars": 35000, "hpro": 1.80, "totalDollars": 100000, "wc": 150, "wcConv": 1.00 },
+    "Chevy Cadillac": { "csi100s": 25, "elr": 200, "cpDollars": 35000, "hpro": 2.20, "totalDollars": 120000, "wc": 150, "wcConv": 1.00 }
+  },
+
+  "advisors": {
+    "_comment": "Six rows transcribed in full and verified: sum of category points equals the printed score to the cent. Expected points are included so the engine can be asserted per category, not just on the total. The remaining 39 rows are legible on the scan and should be transcribed during Phase 1.",
+    "_precisionNote": "wcConv is printed at 2dp but scored at full precision. Quiet Storm prints 0.67 and scores 6.65, which is 0.665 exactly - the printed cell is rounded, the score is not. Values below are the true inputs recovered from the printed points. This is a data-modelling requirement, not a transcription quirk: store raw values at full precision and round only at render. A numeric(12,4) column holds every unit on this sheet. The other six categories happen to survive 2dp display because their values carry enough resolution at their weights, so this bug would only ever surface on wcConv - which is exactly why it is worth pinning in a fixture.",
+    "rows": [
+      {
+        "alias": "Jem", "brand": "Toyota PA", "position": 1, "printedScore": 145.67,
+        "actual":         { "csi100s": 46, "elr": 212.33, "cpDollars": 76523, "hpro": 1.51, "totalDollars": 131654, "wc": 250, "wcConv": 1.05 },
+        "expectedPoints": { "csi100s": 30.67, "elr": 11.80, "cpDollars": 43.73, "hpro": 8.39, "totalDollars": 19.75, "wc": 20.83, "wcConv": 10.50 }
+      },
+      {
+        "alias": "Quiet Storm", "brand": "Nissan SP", "position": 2, "printedScore": 138.96,
+        "actual":         { "csi100s": 10, "elr": 216.96, "cpDollars": 81814, "hpro": 1.73, "totalDollars": 204769, "wc": 145, "wcConv": 0.665 },
+        "expectedPoints": { "csi100s": 25.00, "elr": 10.85, "cpDollars": 46.75, "hpro": 9.61, "totalDollars": 25.60, "wc": 14.50, "wcConv": 6.65 }
+      },
+      {
+        "alias": "Money Mike", "brand": "Volkswagen", "position": 3, "printedScore": 129.24,
+        "actual":         { "csi100s": 7, "elr": 227.05, "cpDollars": 44229, "hpro": 1.89, "totalDollars": 145234, "wc": 139, "wcConv": 1.35 },
+        "expectedPoints": { "csi100s": 35.00, "elr": 11.35, "cpDollars": 25.27, "hpro": 8.59, "totalDollars": 18.15, "wc": 17.38, "wcConv": 13.50 }
+      },
+      {
+        "alias": "Pflee Bomb", "brand": "Kia", "position": 4, "printedScore": 127.89,
+        "actual":         { "csi100s": 16, "elr": 241.89, "cpDollars": 62578, "hpro": 1.48, "totalDollars": 157377, "wc": 171, "wcConv": 0.977 },
+        "expectedPoints": { "csi100s": 21.33, "elr": 12.10, "cpDollars": 35.76, "hpro": 8.22, "totalDollars": 23.61, "wc": 17.10, "wcConv": 9.77 }
+      },
+      {
+        "alias": "Taylormade", "brand": "Toyota VA", "position": 5, "printedScore": 127.42,
+        "actual":         { "csi100s": 5, "elr": 240.30, "cpDollars": 72786, "hpro": 1.85, "totalDollars": 144551, "wc": 258, "wcConv": 1.573 },
+        "expectedPoints": { "csi100s": 3.33, "elr": 12.02, "cpDollars": 41.59, "hpro": 11.56, "totalDollars": 21.68, "wc": 21.50, "wcConv": 15.73 }
+      },
+      {
+        "alias": "Treyway", "brand": "Chevy Cadillac", "position": 6, "printedScore": 121.19,
+        "actual":         { "csi100s": 25, "elr": 207.49, "cpDollars": 78619, "hpro": 2.98, "totalDollars": 182956, "wc": 53, "wcConv": 0.417 },
+        "expectedPoints": { "csi100s": 20.00, "elr": 10.37, "cpDollars": 44.93, "hpro": 13.55, "totalDollars": 22.87, "wc": 5.30, "wcConv": 4.17 }
+      }
+    ]
+  },
+
+  "teamScores": {
+    "_comment": "teamScore = arithmetic mean of that store's advisor scores. Verified exactly on all six stores below. Toyota PA and Toyota VA are omitted: their printed team scores are 95.24 and 86.53, but brand assignment for a few rows was ambiguous on the scan, so the member lists could not be closed. Resolve when transcribing the full 45.",
+    "cases": [
+      { "brand": "Volkswagen",     "advisorScores": [129.24, 95.98, 89.99],                          "expected": 105.07 },
+      { "brand": "Kia",            "advisorScores": [127.89, 109.18, 67.27],                         "expected": 101.45 },
+      { "brand": "Nissan SP",      "advisorScores": [138.96, 101.49, 92.75, 72.06],                  "expected": 101.31 },
+      { "brand": "Chevy Cadillac", "advisorScores": [121.19, 107.10, 103.47, 81.57],                 "expected": 103.33 },
+      { "brand": "Toyota STR",     "advisorScores": [119.36, 115.97, 115.13, 114.32, 71.61, 70.41],  "expected": 101.13 },
+      { "brand": "Nissan",         "advisorScores": [100.05, 83.48, 82.53, 76.37, 68.32, 51.95],     "expected": 77.12 }
+    ]
+  },
+
+  "managers": {
+    "_comment": "All eight rows, complete and verified. Category values arrive already expressed as percent of goal, so points = value * weight / 100. Score = sum of points minus penalty. BHoosiers is the only store carrying a penalty and is the most valuable single test case.",
+    "rows": [
+      { "alias": "Wes Side",        "brand": "Volkswagen",     "position": 1, "printedScore": 102.87, "penalty": 0,
+        "actual":         { "csiGoalPct": 97.69,  "cpGoalPct": 111.75, "grossGoalPct": 98.45,  "teamScore": 105.07 },
+        "expectedPoints": { "csiGoalPct": 29.31,  "cpGoalPct": 22.35,  "grossGoalPct": 19.69,  "teamScore": 31.52 } },
+      { "alias": "Old Man",         "brand": "Toyota STR",     "position": 2, "printedScore": 102.58, "penalty": 0,
+        "actual":         { "csiGoalPct": 104.04, "cpGoalPct": 103.11, "grossGoalPct": 102.04, "teamScore": 101.13 },
+        "expectedPoints": { "csiGoalPct": 31.21,  "cpGoalPct": 20.62,  "grossGoalPct": 20.41,  "teamScore": 30.34 } },
+      { "alias": "Maverick",        "brand": "Chevy Cadillac", "position": 3, "printedScore": 99.72,  "penalty": 0,
+        "actual":         { "csiGoalPct": 102.04, "cpGoalPct": 101.74, "grossGoalPct": 88.79,  "teamScore": 103.33 },
+        "expectedPoints": { "csiGoalPct": 30.61,  "cpGoalPct": 20.35,  "grossGoalPct": 17.76,  "teamScore": 31.00 } },
+      { "alias": "LFG",             "brand": "Toyota PA",      "position": 4, "printedScore": 99.06,  "penalty": 0,
+        "actual":         { "csiGoalPct": 101.91, "cpGoalPct": 109.19, "grossGoalPct": 90.38,  "teamScore": 95.24 },
+        "expectedPoints": { "csiGoalPct": 30.57,  "cpGoalPct": 21.84,  "grossGoalPct": 18.08,  "teamScore": 28.57 } },
+      { "alias": "The Bull",        "brand": "Toyota VA",      "position": 5, "printedScore": 98.49,  "penalty": 0,
+        "actual":         { "csiGoalPct": 97.66,  "cpGoalPct": 113.62, "grossGoalPct": 102.53, "teamScore": 86.53 },
+        "expectedPoints": { "csiGoalPct": 29.30,  "cpGoalPct": 22.72,  "grossGoalPct": 20.51,  "teamScore": 25.96 } },
+      { "alias": "Listen Linda",    "brand": "Kia",            "position": 6, "printedScore": 96.76,  "penalty": 0,
+        "actual":         { "csiGoalPct": 97.01,  "cpGoalPct": 88.09,  "grossGoalPct": 98.04,  "teamScore": 101.45 },
+        "expectedPoints": { "csiGoalPct": 29.10,  "cpGoalPct": 17.62,  "grossGoalPct": 19.61,  "teamScore": 30.44 } },
+      { "alias": "Lightning Boltz", "brand": "Nissan",         "position": 7, "printedScore": 96.23,  "penalty": 0,
+        "actual":         { "csiGoalPct": 100.54, "cpGoalPct": 107.91, "grossGoalPct": 106.76, "teamScore": 77.12 },
+        "expectedPoints": { "csiGoalPct": 30.16,  "cpGoalPct": 21.58,  "grossGoalPct": 21.35,  "teamScore": 23.14 } },
+      { "alias": "BHoosiers",       "brand": "Nissan SP",      "position": 8, "printedScore": 91.60,  "penalty": 5,
+        "actual":         { "csiGoalPct": 84.11,  "cpGoalPct": 95.19,  "grossGoalPct": 109.68, "teamScore": 101.31 },
+        "expectedPoints": { "csiGoalPct": 25.23,  "cpGoalPct": 19.04,  "grossGoalPct": 21.94,  "teamScore": 30.39 } }
+    ]
+  },
+
+  "tolerance": {
+    "_comment": "The sheet prints points rounded to 2dp and sums the rounded values, so assert against rounded points rather than full-precision products.",
+    "points": 0.011,
+    "score": 0.02
+  }
+}

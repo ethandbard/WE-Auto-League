@@ -1,0 +1,19 @@
+node_modules/
+dist/
+
+# Pre-existing browser "Save Page As" artifact, not part of the project.
+CLAUDE.html
+CLAUDE_files/
+.env
+config.env
+data/postgres/
+
+# Contains real third-party PII (screenshots of the incumbent competitor's
+# live product, showing real names/photo/employer/pay-adjacent figures for
+# an unrelated real league) plus the client's own scanned scoreboard and
+# brief. Reference material only — nothing in server/ or client/ reads from
+# this folder at runtime. Keep it out of git history.
+request_assets/
+*.tsbuildinfo
+.DS_Store
+npm-debug.log*

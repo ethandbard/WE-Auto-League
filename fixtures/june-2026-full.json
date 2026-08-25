@@ -1,0 +1,87 @@
+{
+  "_comment": "Full transcription of request_assets/WE Auto league idea_scanned document of the printed out scoreboards.pdf (Victory Lane Race Standings, June 2026, ORION Business Strategies Group). All 45 advisor rows and all 8 manager rows, read from a 6x-magnified render of the scan and cross-checked: every store's team score (mean of its advisors' scores) reproduces fixtures/june-2026.json's teamScores.cases exactly, and every store's goal figures were re-derived from at least two rows and land on the same round number. This supersedes the '39 rows remain to transcribe' note in june-2026.json for seed-data purposes; june-2026.json remains the golden-master fixture the engine's tests assert against.",
+  "period": "2026-06",
+  "league": "WE Auto League",
+
+  "weights": {
+    "advisor": { "csi100s": 20, "elr": 10, "cpDollars": 20, "hpro": 10, "totalDollars": 15, "wc": 15, "wcConv": 10 },
+    "manager": { "csiGoalPct": 30, "cpGoalPct": 20, "grossGoalPct": 20, "teamScore": 30 }
+  },
+
+  "goals": {
+    "_comment": "Complete for all 8 stores. Toyota STR's hpro/totalDollars/wc and Nissan's elr/totalDollars/wc were null in june-2026.json (not yet transcribed there) and are filled in here, each derived from two independent advisor rows agreeing to the cent.",
+    "Toyota PA":      { "csi100s": 30, "elr": 180, "cpDollars": 35000, "hpro": 1.80, "totalDollars": 100000, "wc": 180, "wcConv": 1.00 },
+    "Toyota STR":     { "csi100s": 30, "elr": 180, "cpDollars": 35000, "hpro": 1.80, "totalDollars": 100000, "wc": 180, "wcConv": 1.00 },
+    "Toyota VA":      { "csi100s": 30, "elr": 200, "cpDollars": 35000, "hpro": 1.60, "totalDollars": 100000, "wc": 180, "wcConv": 1.00 },
+    "Volkswagen":     { "csi100s": 4,  "elr": 200, "cpDollars": 35000, "hpro": 2.20, "totalDollars": 120000, "wc": 120, "wcConv": 1.00 },
+    "Nissan SP":      { "csi100s": 8,  "elr": 200, "cpDollars": 35000, "hpro": 1.80, "totalDollars": 120000, "wc": 150, "wcConv": 1.00 },
+    "Nissan":         { "csi100s": 8,  "elr": 200, "cpDollars": 35000, "hpro": 1.80, "totalDollars": 120000, "wc": 150, "wcConv": 1.00 },
+    "Kia":            { "csi100s": 15, "elr": 200, "cpDollars": 35000, "hpro": 1.80, "totalDollars": 100000, "wc": 150, "wcConv": 1.00 },
+    "Chevy Cadillac": { "csi100s": 25, "elr": 200, "cpDollars": 35000, "hpro": 2.20, "totalDollars": 120000, "wc": 150, "wcConv": 1.00 }
+  },
+
+  "advisors": [
+    { "alias": "Jem", "brand": "Toyota PA", "position": 1, "printedScore": 145.67, "actual": { "csi100s": 46, "elr": 212.33, "cpDollars": 76523, "hpro": 1.51, "totalDollars": 131654, "wc": 250, "wcConv": 1.05 } },
+    { "alias": "Quiet Storm", "brand": "Nissan SP", "position": 2, "printedScore": 138.96, "actual": { "csi100s": 10, "elr": 216.96, "cpDollars": 81814, "hpro": 1.73, "totalDollars": 204769, "wc": 145, "wcConv": 0.665 } },
+    { "alias": "Money Mike", "brand": "Volkswagen", "position": 3, "printedScore": 129.24, "actual": { "csi100s": 7, "elr": 227.05, "cpDollars": 44229, "hpro": 1.89, "totalDollars": 145234, "wc": 139, "wcConv": 1.35 } },
+    { "alias": "Pflee Bomb", "brand": "Kia", "position": 4, "printedScore": 127.89, "actual": { "csi100s": 16, "elr": 241.89, "cpDollars": 62578, "hpro": 1.48, "totalDollars": 157377, "wc": 171, "wcConv": 0.977 } },
+    { "alias": "Taylormade", "brand": "Toyota VA", "position": 5, "printedScore": 127.42, "actual": { "csi100s": 5, "elr": 240.30, "cpDollars": 72786, "hpro": 1.85, "totalDollars": 144551, "wc": 258, "wcConv": 1.573 } },
+    { "alias": "Treyway", "brand": "Chevy Cadillac", "position": 6, "printedScore": 121.19, "actual": { "csi100s": 25, "elr": 207.49, "cpDollars": 78619, "hpro": 2.98, "totalDollars": 182956, "wc": 53, "wcConv": 0.417 } },
+    { "alias": "Fortunate One", "brand": "Toyota STR", "position": 7, "printedScore": 119.36, "actual": { "csi100s": 33, "elr": 191.80, "cpDollars": 63180, "hpro": 1.57, "totalDollars": 101941, "wc": 203, "wcConv": 0.967 } },
+    { "alias": "Upstick", "brand": "Toyota STR", "position": 8, "printedScore": 115.97, "actual": { "csi100s": 55, "elr": 184.07, "cpDollars": 49074, "hpro": 1.59, "totalDollars": 96550, "wc": 124, "wcConv": 0.738 } },
+    { "alias": "Sniper", "brand": "Toyota STR", "position": 9, "printedScore": 115.13, "actual": { "csi100s": 45, "elr": 202.73, "cpDollars": 54495, "hpro": 1.65, "totalDollars": 91575, "wc": 137, "wcConv": 0.840 } },
+    { "alias": "Freddy", "brand": "Toyota STR", "position": 10, "printedScore": 114.32, "actual": { "csi100s": 39, "elr": 179.66, "cpDollars": 57814, "hpro": 1.60, "totalDollars": 113216, "wc": 146, "wcConv": 0.726 } },
+    { "alias": "My Name Is Frankie", "brand": "Toyota PA", "position": 11, "printedScore": 110.03, "actual": { "csi100s": 44, "elr": 170.81, "cpDollars": 52850, "hpro": 1.38, "totalDollars": 137946, "wc": 99, "wcConv": 0.440 } },
+    { "alias": "Print Mastah", "brand": "Kia", "position": 12, "printedScore": 109.18, "actual": { "csi100s": 20, "elr": 208.24, "cpDollars": 47438, "hpro": 1.27, "totalDollars": 132349, "wc": 116, "wcConv": 0.648 } },
+    { "alias": "Crazy", "brand": "Chevy Cadillac", "position": 13, "printedScore": 107.10, "actual": { "csi100s": 24, "elr": 214.87, "cpDollars": 63859, "hpro": 2.22, "totalDollars": 132842, "wc": 80, "wcConv": 0.597 } },
+    { "alias": "Hicks Island", "brand": "Chevy Cadillac", "position": 14, "printedScore": 103.47, "actual": { "csi100s": 20, "elr": 215.85, "cpDollars": 55968, "hpro": 2.25, "totalDollars": 197995, "wc": 52, "wcConv": 0.452 } },
+    { "alias": "Libra Girl", "brand": "Nissan SP", "position": 15, "printedScore": 101.49, "actual": { "csi100s": 8, "elr": 210.38, "cpDollars": 53078, "hpro": 1.43, "totalDollars": 112244, "wc": 119, "wcConv": 0.676 } },
+    { "alias": "Bubble Gum", "brand": "Nissan", "position": 16, "printedScore": 100.05, "actual": { "csi100s": 7, "elr": 213.94, "cpDollars": 54575, "hpro": 1.59, "totalDollars": 141586, "wc": 87, "wcConv": 0.544 } },
+    { "alias": "Wednesday Adams", "brand": "Toyota PA", "position": 17, "printedScore": 99.55, "actual": { "csi100s": 37, "elr": 167.77, "cpDollars": 53283, "hpro": 1.44, "totalDollars": 109629, "wc": 83, "wcConv": 0.376 } },
+    { "alias": "Downhammer", "brand": "Toyota VA", "position": 18, "printedScore": 98.44, "actual": { "csi100s": 22, "elr": 222.82, "cpDollars": 50892, "hpro": 1.26, "totalDollars": 113131, "wc": 135, "wcConv": 0.746 } },
+    { "alias": "Arob", "brand": "Volkswagen", "position": 19, "printedScore": 95.98, "actual": { "csi100s": 2, "elr": 210.62, "cpDollars": 47527, "hpro": 2.82, "totalDollars": 129754, "wc": 77, "wcConv": 0.963 } },
+    { "alias": "B.A.B.", "brand": "Toyota PA", "position": 20, "printedScore": 94.98, "actual": { "csi100s": 23, "elr": 168.98, "cpDollars": 48177, "hpro": 1.43, "totalDollars": 93835, "wc": 155, "wcConv": 0.779 } },
+    { "alias": "J-Cheese", "brand": "Toyota PA", "position": 21, "printedScore": 94.12, "actual": { "csi100s": 34, "elr": 163.06, "cpDollars": 46343, "hpro": 1.31, "totalDollars": 110650, "wc": 93, "wcConv": 0.429 } },
+    { "alias": "Gramps", "brand": "Toyota VA", "position": 22, "printedScore": 93.58, "actual": { "csi100s": 16, "elr": 220.06, "cpDollars": 49095, "hpro": 1.64, "totalDollars": 101696, "wc": 117, "wcConv": 0.860 } },
+    { "alias": "Britmaster", "brand": "Toyota VA", "position": 23, "printedScore": 93.22, "actual": { "csi100s": 10, "elr": 215.24, "cpDollars": 55165, "hpro": 1.61, "totalDollars": 124719, "wc": 106, "wcConv": 0.667 } },
+    { "alias": "BigX Dplug", "brand": "Nissan SP", "position": 24, "printedScore": 92.75, "actual": { "csi100s": 1, "elr": 220.05, "cpDollars": 56950, "hpro": 1.74, "totalDollars": 134500, "wc": 121, "wcConv": 0.812 } },
+    { "alias": "MissTheThinker", "brand": "Toyota VA", "position": 25, "printedScore": 92.25, "actual": { "csi100s": 15, "elr": 231.17, "cpDollars": 50442, "hpro": 1.39, "totalDollars": 127131, "wc": 96, "wcConv": 0.611 } },
+    { "alias": "H Dub", "brand": "Volkswagen", "position": 26, "printedScore": 89.99, "actual": { "csi100s": 0, "elr": 205.05, "cpDollars": 53795, "hpro": 2.17, "totalDollars": 145278, "wc": 101, "wcConv": 0.835 } },
+    { "alias": "Nemo", "brand": "Toyota PA", "position": 27, "printedScore": 87.86, "actual": { "csi100s": 27, "elr": 171.26, "cpDollars": 43790, "hpro": 1.31, "totalDollars": 88237, "wc": 110, "wcConv": 0.564 } },
+    { "alias": "BTB", "brand": "Toyota VA", "position": 28, "printedScore": 84.96, "actual": { "csi100s": 13, "elr": 230.05, "cpDollars": 41938, "hpro": 1.31, "totalDollars": 89239, "wc": 124, "wcConv": 0.892 } },
+    { "alias": "Angel", "brand": "Nissan", "position": 29, "printedScore": 83.48, "actual": { "csi100s": 3, "elr": 213.03, "cpDollars": 48826, "hpro": 1.93, "totalDollars": 91421, "wc": 83, "wcConv": 0.697 } },
+    { "alias": "Bucket", "brand": "Nissan", "position": 30, "printedScore": 82.53, "actual": { "csi100s": 3, "elr": 216.69, "cpDollars": 44140, "hpro": 1.54, "totalDollars": 95686, "wc": 105, "wcConv": 0.795 } },
+    { "alias": "RMC", "brand": "Chevy Cadillac", "position": 31, "printedScore": 81.57, "actual": { "csi100s": 15, "elr": 230.81, "cpDollars": 39329, "hpro": 2.10, "totalDollars": 93702, "wc": 64, "wcConv": 0.790 } },
+    { "alias": "Stinger", "brand": "Toyota VA", "position": 32, "printedScore": 79.31, "actual": { "csi100s": 10, "elr": 226.93, "cpDollars": 38895, "hpro": 1.32, "totalDollars": 90082, "wc": 108, "wcConv": 0.831 } },
+    { "alias": "Katnip", "brand": "Toyota PA", "position": 33, "printedScore": 79.17, "actual": { "csi100s": 31, "elr": 153.05, "cpDollars": 37100, "hpro": 1.10, "totalDollars": 82589, "wc": 80, "wcConv": 0.364 } },
+    { "alias": "Danimal", "brand": "Nissan", "position": 34, "printedScore": 76.37, "actual": { "csi100s": 1, "elr": 226.58, "cpDollars": 46426, "hpro": 1.50, "totalDollars": 80292, "wc": 102, "wcConv": 0.745 } },
+    { "alias": "Vegas", "brand": "Toyota PA", "position": 35, "printedScore": 76.28, "actual": { "csi100s": 28, "elr": 143.85, "cpDollars": 33948, "hpro": 1.28, "totalDollars": 97267, "wc": 62, "wcConv": 0.335 } },
+    { "alias": "Hoss", "brand": "Toyota VA", "position": 36, "printedScore": 74.20, "actual": { "csi100s": 11, "elr": 211.12, "cpDollars": 44482, "hpro": 1.11, "totalDollars": 88857, "wc": 78, "wcConv": 0.413 } },
+    { "alias": "Hen Dawg", "brand": "Nissan SP", "position": 37, "printedScore": 72.06, "actual": { "csi100s": 0, "elr": 226.19, "cpDollars": 39244, "hpro": 2.31, "totalDollars": 73238, "wc": 70, "wcConv": 0.933 } },
+    { "alias": "Mandi Lou Who", "brand": "Toyota STR", "position": 38, "printedScore": 71.61, "actual": { "csi100s": 20, "elr": 166.67, "cpDollars": 35383, "hpro": 1.17, "totalDollars": 80302, "wc": 74, "wcConv": 0.409 } },
+    { "alias": "Paige", "brand": "Toyota STR", "position": 39, "printedScore": 70.41, "actual": { "csi100s": 23, "elr": 169.39, "cpDollars": 29728, "hpro": 1.32, "totalDollars": 72539, "wc": 66, "wcConv": 0.496 } },
+    { "alias": "Exner", "brand": "Toyota PA", "position": 40, "printedScore": 69.49, "actual": { "csi100s": 33, "elr": 150.83, "cpDollars": 26666, "hpro": 0.95, "totalDollars": 56431, "wc": 74, "wcConv": 0.396 } },
+    { "alias": "Cardy", "brand": "Nissan", "position": 41, "printedScore": 68.32, "actual": { "csi100s": 1, "elr": 227.83, "cpDollars": 33651, "hpro": 1.21, "totalDollars": 90955, "wc": 94, "wcConv": 0.770 } },
+    { "alias": "Nay Nay", "brand": "Kia", "position": 42, "printedScore": 67.27, "actual": { "csi100s": 8, "elr": 190.24, "cpDollars": 28403, "hpro": 1.11, "totalDollars": 97317, "wc": 58, "wcConv": 0.430 } },
+    { "alias": "Mini B", "brand": "Toyota VA", "position": 43, "printedScore": 64.91, "actual": { "csi100s": 7, "elr": 209.91, "cpDollars": 37783, "hpro": 1.32, "totalDollars": 73131, "wc": 57, "wcConv": 0.419 } },
+    { "alias": "Keyzz", "brand": "Toyota VA", "position": 44, "printedScore": 57.04, "actual": { "csi100s": 14, "elr": 207.63, "cpDollars": 24501, "hpro": 0.97, "totalDollars": 58897, "wc": 51, "wcConv": 0.418 } },
+    { "alias": "Nashville", "brand": "Nissan", "position": 45, "printedScore": 51.95, "actual": { "csi100s": 2, "elr": 217.96, "cpDollars": 21425, "hpro": 1.51, "totalDollars": 54312, "wc": 34, "wcConv": 0.523 } }
+  ],
+
+  "managers": [
+    { "alias": "Wes Side",        "brand": "Volkswagen",     "position": 1, "printedScore": 102.87, "penalty": 0, "actual": { "csiGoalPct": 97.69,  "cpGoalPct": 111.75, "grossGoalPct": 98.45,  "teamScore": 105.07 } },
+    { "alias": "Old Man",         "brand": "Toyota STR",     "position": 2, "printedScore": 102.58, "penalty": 0, "actual": { "csiGoalPct": 104.04, "cpGoalPct": 103.11, "grossGoalPct": 102.04, "teamScore": 101.13 } },
+    { "alias": "Maverick",        "brand": "Chevy Cadillac", "position": 3, "printedScore": 99.72,  "penalty": 0, "actual": { "csiGoalPct": 102.04, "cpGoalPct": 101.74, "grossGoalPct": 88.79,  "teamScore": 103.33 } },
+    { "alias": "LFG",             "brand": "Toyota PA",      "position": 4, "printedScore": 99.06,  "penalty": 0, "actual": { "csiGoalPct": 101.91, "cpGoalPct": 109.19, "grossGoalPct": 90.38,  "teamScore": 95.24 } },
+    { "alias": "The Bull",        "brand": "Toyota VA",      "position": 5, "printedScore": 98.49,  "penalty": 0, "actual": { "csiGoalPct": 97.66,  "cpGoalPct": 113.62, "grossGoalPct": 102.53, "teamScore": 86.53 } },
+    { "alias": "Listen Linda",    "brand": "Kia",            "position": 6, "printedScore": 96.76,  "penalty": 0, "actual": { "csiGoalPct": 97.01,  "cpGoalPct": 88.09,  "grossGoalPct": 98.04,  "teamScore": 101.45 } },
+    { "alias": "Lightning Boltz", "brand": "Nissan",         "position": 7, "printedScore": 96.23,  "penalty": 0, "actual": { "csiGoalPct": 100.54, "cpGoalPct": 107.91, "grossGoalPct": 106.76, "teamScore": 77.12 } },
+    { "alias": "BHoosiers",       "brand": "Nissan SP",      "position": 8, "printedScore": 91.60,  "penalty": 5, "actual": { "csiGoalPct": 84.11,  "cpGoalPct": 95.19,  "grossGoalPct": 109.68, "teamScore": 101.31 } }
+  ],
+
+  "verification": {
+    "_comment": "Every store's team score, recomputed here as the mean of its 45 advisors' printed scores, reproduces fixtures/june-2026.json teamScores.cases to the cent. Toyota PA and Toyota VA (not resolvable in june-2026.json) close here: 95.24 and 86.53.",
+    "Volkswagen": 105.07, "Kia": 101.45, "Nissan SP": 101.31, "Chevy Cadillac": 103.33,
+    "Toyota STR": 101.13, "Nissan": 77.12, "Toyota PA": 95.24, "Toyota VA": 86.53
+  }
+}

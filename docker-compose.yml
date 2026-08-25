@@ -1,0 +1,56 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: we-auto-league
+    restart: unless-stopped
+    env_file:
+      - config.env
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - edge
+      - internal
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4000/api/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  db:
+    image: postgres:16
+    container_name: we-auto-league-db
+    restart: unless-stopped
+    env_file:
+      - config.env
+    environment:
+      POSTGRES_DB: we_auto_league
+      POSTGRES_USER: we_auto_league
+      # POSTGRES_PASSWORD comes from config.env via env_file above.
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U we_auto_league"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  edge:
+    external: true
+  internal:
