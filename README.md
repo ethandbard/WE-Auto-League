@@ -123,6 +123,7 @@ docker compose exec app node server/dist/scripts/seed.js
 | `ECONNREFUSED` on any db script | PostgreSQL isn't running, or the host/port in `.env` is wrong. |
 | `Cannot find module '@esbuild/...'` after install | npm 11 blocks install scripts. Run `npm approve-scripts --allow-scripts-pending && npm install`. |
 | Magic-link sign-in returns `ok: true` but nothing arrives | Expected locally — `NODE_ENV` isn't `production`, so the link is returned in the response instead of emailed. |
+| Production Sign out left you on a dead email form | The in-app form is the local magic-link flow. Production uses Cloudflare Access; Sign out goes to `/cdn-cgi/access/logout` and the next load is the PIN. |
 | Port 4000 or 5173 already in use | Change `API_PORT` in `.env`; the Vite port is in `client/vite.config.ts`. |
 
 ## Scripts

@@ -108,8 +108,11 @@ async function resolveViaCloudflareAccess(req: Request): Promise<Actor | null> {
 
 /** AUTH_PROVIDER=cloudflare-access for an enterprise deployment; session (magic link) otherwise. */
 export async function resolveActor(req: Request): Promise<Actor | null> {
-  if ((process.env.AUTH_PROVIDER ?? 'session') === 'cloudflare-access') {
+  if (env.authProvider === 'cloudflare-access') {
     return resolveViaCloudflareAccess(req);
   }
   return resolveViaSession(req);
 }
+
+/** Same-origin Access logout. Revokes the Access JWT across every app on this team, not only this origin. */
+export const ACCESS_LOGOUT_PATH = '/cdn-cgi/access/logout';

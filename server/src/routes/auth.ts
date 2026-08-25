@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { employees } from '../db/schema.js';
 import { asyncHandler, badRequest } from '../http.js';
-import { issueMagicLink, consumeMagicLink, revokeSession, parseCookies, SESSION_COOKIE } from '../auth.js';
+import { issueMagicLink, consumeMagicLink, revokeSession, parseCookies, SESSION_COOKIE, ACCESS_LOGOUT_PATH } from '../auth.js';
 import { env } from '../env.js';
 import { sendMagicLinkEmail } from '../email/send.js';
 
@@ -15,6 +15,9 @@ const requestLinkSchema = z.object({ email: z.string().email() });
 authRouter.post(
   '/request-link',
   asyncHandler(async (req, res) => {
+    if (env.authProvider === 'cloudflare-access') {
+      throw badRequest('This deployment uses Cloudflare Access. Sign in at the PIN page, not with a magic link.');
+    }
     const { email } = requestLinkSchema.parse(req.body);
     const [employee] = await db.select().from(employees).where(eq(employees.email, email)).limit(1);
     // Always 200, whether or not the email is registered — don't leak the roster by timing/response shape.
@@ -38,6 +41,9 @@ const verifySchema = z.object({ token: z.string().min(10) });
 authRouter.post(
   '/verify',
   asyncHandler(async (req, res) => {
+    if (env.authProvider === 'cloudflare-access') {
+      throw badRequest('This deployment uses Cloudflare Access. Sign in at the PIN page, not with a magic link.');
+    }
     const { token } = verifySchema.parse(req.body);
     const result = await consumeMagicLink(token);
     if (!result) throw badRequest('This link is invalid or has expired. Request a new one.');
@@ -58,13 +64,17 @@ authRouter.post(
     const token = parseCookies(req.headers.cookie)[SESSION_COOKIE];
     if (token) await revokeSession(token);
     res.clearCookie(SESSION_COOKIE, { path: '/' });
-    res.json({ ok: true });
+    res.json(
+      env.authProvider === 'cloudflare-access'
+        ? { ok: true, accessLogoutUrl: ACCESS_LOGOUT_PATH }
+        : { ok: true },
+    );
   }),
 );
 
 authRouter.get(
   '/me',
   asyncHandler(async (req, res) => {
-    res.json({ actor: req.actor ?? null });
+    res.json({ actor: req.actor ?? null, authProvider: env.authProvider });
   }),
 );

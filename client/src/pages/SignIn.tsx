@@ -5,7 +5,7 @@ import { useCurrentUser } from '../lib/useCurrentUser';
 import { Card, Button } from '../components/ui';
 
 export function SignIn() {
-  const { requestLink, verify, actor } = useCurrentUser();
+  const { requestLink, verify, actor, authProvider, loading } = useCurrentUser();
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -17,17 +17,38 @@ export function SignIn() {
   const tokenFromUrl = params.get('token');
 
   useEffect(() => {
+    if (loading || authProvider === 'cloudflare-access') return;
     if (tokenFromUrl && !verifying) {
       setVerifying(true);
       verify(tokenFromUrl)
         .then(() => navigate('/'))
         .catch(() => setError('This link is invalid or has expired. Request a new one.'));
     }
-  }, [tokenFromUrl, verify, navigate, verifying]);
+  }, [tokenFromUrl, verify, navigate, verifying, loading, authProvider]);
+
+  if (loading) {
+    return <p className="text-sm text-ink-2">Signing you in…</p>;
+  }
 
   if (actor) {
     navigate('/');
     return null;
+  }
+
+  if (authProvider === 'cloudflare-access') {
+    return (
+      <div className="max-w-sm">
+        <p className="font-display text-[11px] font-semibold uppercase tracking-widest text-brand">Sign in</p>
+        <h1 className="font-display text-2xl font-bold text-ink">WE Auto League</h1>
+        <p className="mt-2 text-sm text-ink-2">This site signs you in through Cloudflare Access, not email.</p>
+        <p className="mt-1 text-sm text-ink-2">Reload to restore a still-valid Access session. If you signed out, complete the PIN on the next page.</p>
+        <Card className="mt-6 p-5">
+          <Button type="button" className="w-full" onClick={() => window.location.assign('/')}>
+            Reload
+          </Button>
+        </Card>
+      </div>
+    );
   }
 
   if (tokenFromUrl) {
@@ -38,7 +59,7 @@ export function SignIn() {
     <div className="max-w-sm">
       <p className="font-display text-[11px] font-semibold uppercase tracking-widest text-brand">Sign in</p>
       <h1 className="font-display text-2xl font-bold text-ink">WE Auto League</h1>
-      <p className="mt-2 text-sm text-ink-2">Enter your league email — we'll send a link to sign in, no password needed.</p>
+      <p className="mt-2 text-sm text-ink-2">Enter your league email. The app sends a sign-in link; there is no password.</p>
 
       <Card className="mt-6 p-5">
         {sent ? (

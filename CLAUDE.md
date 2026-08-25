@@ -366,10 +366,10 @@ need it call `requireAuth()` / `requireRole(...)` / `requireStoreWrite(...)`.
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/health` | Liveness + DB round trip |
-| POST | `/api/auth/request-link` | Issues a magic link; in dev, returns it directly instead of emailing |
-| POST | `/api/auth/verify` | Consumes the token, sets the session cookie |
-| POST | `/api/auth/logout` | Revokes the session |
-| GET | `/api/auth/me` | The current actor, or null |
+| POST | `/api/auth/request-link` | Issues a magic link; in dev, returns it directly instead of emailing. 400 when `AUTH_PROVIDER=cloudflare-access`. |
+| POST | `/api/auth/verify` | Consumes the token, sets the session cookie. 400 when `AUTH_PROVIDER=cloudflare-access`. |
+| POST | `/api/auth/logout` | Revokes the session cookie. In Access mode also returns `accessLogoutUrl` (`/cdn-cgi/access/logout`). |
+| GET | `/api/auth/me` | `{ actor, authProvider }`. `actor` is null when unsigned-in. |
 | GET/POST | `/api/periods` | List / create (with optional carry-forward from another period) |
 | POST | `/api/periods/:id/lock` | Marks the latest submission per store final, computes scores |
 | POST | `/api/periods/:id/publish` | Publishes the current revision — immutable from here |
@@ -424,9 +424,11 @@ need it call `requireAuth()` / `requireRole(...)` / `requireStoreWrite(...)`.
 - **API paths are relative** (`/api/...`); Vite proxies to `localhost:4000` in
   dev (`client/vite.config.ts`).
 - **The acting user** is `useCurrentUser()`'s `actor`, sourced from
-  `GET /api/auth/me` on mount and refreshed on verify/sign-out. Nothing reads
-  or writes a header for attribution client-side — the session cookie does
-  that server-side.
+  `GET /api/auth/me` on mount (`{ actor, authProvider }`). Nothing reads or
+  writes a header for attribution client-side. In `session` mode the cookie
+  does that; in `cloudflare-access` mode Sign out navigates to
+  `/cdn-cgi/access/logout` (team-wide — every Access app on this account,
+  not only this origin).
 - **Design tokens** live in `client/src/index.css` under Tailwind v4's
   `@theme`. Three type roles: `--font-display` (Archivo, nav/headers),
   `--font-body` (system sans, copy/forms), `--font-mono` (IBM Plex Mono, every
@@ -507,9 +509,13 @@ Production `AUTH_PROVIDER` is `cloudflare-access`. Two gates, not one:
 2. The origin then maps `Cf-Access-Authenticated-User-Email` onto
    `employees.email`. The seed commissioner is `ethan@thebardfamily.com`.
    Matching that row is what makes someone a commissioner in the app.
-   The `/sign-in` magic-link page is unused in this mode: `resolveActor`
-   never reads the session cookie, and production does not email the
-   link (console transport, and the JSON does not return `devLink`).
+
+Do not clear only the client actor on Sign out — Access still has a JWT,
+`/api/auth/me` will restore them, and the magic-link form cannot email.
+Sign out must send the browser to `/cdn-cgi/access/logout`. That revoke
+is team-wide (pokemon-crm, notebox, and the other Access apps too).
+`/sign-in` in this mode is a reload prompt, not an email form.
+`request-link` / `verify` return 400.
 
 Magic-link sessions stay the local default. Do not switch production back
 to `session` until Cloudflare Email Sending is configured.

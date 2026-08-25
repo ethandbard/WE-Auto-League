@@ -43,6 +43,7 @@ export const env = {
   appBaseUrl: process.env.APP_BASE_URL || 'http://localhost:5173',
   authSecret: process.env.AUTH_SECRET || 'dev-only-change-me',
   authSessionDays: int('AUTH_SESSION_DAYS', 30),
+  authProvider: (process.env.AUTH_PROVIDER ?? 'session') === 'cloudflare-access' ? 'cloudflare-access' : 'session',
   cfEmailAccountId: process.env.CF_EMAIL_ACCOUNT_ID ?? '',
   cfEmailApiToken: process.env.CF_EMAIL_API_TOKEN ?? '',
   cfEmailFrom: process.env.CF_EMAIL_FROM || 'standings@auto.ethandbard.com',

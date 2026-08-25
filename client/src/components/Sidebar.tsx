@@ -11,7 +11,7 @@ const NAV = [
 ] as const;
 
 export function Sidebar() {
-  const { actor, signOut } = useCurrentUser();
+  const { actor, authProvider, loading, signOut } = useCurrentUser();
 
   return (
     <aside className="flex h-full w-56 shrink-0 flex-col border-r border-hairline bg-surface">
@@ -37,7 +37,7 @@ export function Sidebar() {
         ))}
       </nav>
       <div className="border-t border-hairline px-4 py-4">
-        {actor ? (
+        {loading ? null : actor ? (
           <div>
             <p className="truncate text-sm font-medium text-ink">{actor.name}</p>
             <p className="text-xs capitalize text-ink-3">{actor.role}</p>
@@ -45,6 +45,8 @@ export function Sidebar() {
               Sign out
             </button>
           </div>
+        ) : authProvider === 'cloudflare-access' ? (
+          <p className="text-xs text-ink-3">Access email is not on the roster.</p>
         ) : (
           <NavLink to="/sign-in" className="text-sm font-medium text-brand hover:underline">
             Sign in

@@ -1,9 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { api } from './api';
-import type { Actor } from './types';
+import type { Actor, AuthProvider } from './types';
 
 interface CurrentUserContextValue {
   actor: Actor | null;
+  authProvider: AuthProvider;
   loading: boolean;
   requestLink: (email: string) => Promise<{ devLink?: string }>;
   verify: (token: string) => Promise<void>;
@@ -14,11 +15,13 @@ const CurrentUserContext = createContext<CurrentUserContextValue | null>(null);
 
 export function CurrentUserProvider({ children }: { children: ReactNode }) {
   const [actor, setActor] = useState<Actor | null>(null);
+  const [authProvider, setAuthProvider] = useState<AuthProvider>('session');
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    const res = await api.get<{ actor: Actor | null }>('/api/auth/me');
+    const res = await api.get<{ actor: Actor | null; authProvider: AuthProvider }>('/api/auth/me');
     setActor(res.actor);
+    setAuthProvider(res.authProvider);
   }, []);
 
   useEffect(() => {
@@ -39,11 +42,18 @@ export function CurrentUserProvider({ children }: { children: ReactNode }) {
   );
 
   const signOut = useCallback(async () => {
-    await api.post('/api/auth/logout');
+    const res = await api.post<{ ok: boolean; accessLogoutUrl?: string }>('/api/auth/logout');
     setActor(null);
+    if (res.accessLogoutUrl) {
+      window.location.assign(res.accessLogoutUrl);
+    }
   }, []);
 
-  return <CurrentUserContext.Provider value={{ actor, loading, requestLink, verify, signOut }}>{children}</CurrentUserContext.Provider>;
+  return (
+    <CurrentUserContext.Provider value={{ actor, authProvider, loading, requestLink, verify, signOut }}>
+      {children}
+    </CurrentUserContext.Provider>
+  );
 }
 
 export function useCurrentUser(): CurrentUserContextValue {

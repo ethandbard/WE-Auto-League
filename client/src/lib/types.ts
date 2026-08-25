@@ -7,6 +7,8 @@ export interface Actor {
   role: 'advisor' | 'manager' | 'commissioner';
 }
 
+export type AuthProvider = 'session' | 'cloudflare-access';
+
 export interface Period {
   id: number;
   leagueId: number;
