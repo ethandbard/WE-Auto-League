@@ -6,9 +6,8 @@ stores against monthly goals, and it publishes standings and mails them on
 schedule.
 
 **Status: Phases 1–7 built** (scaffold, scoring engine, data entry, admin,
-standings UI, comms/scheduler, API+MCP seams). Phase 8 (deploy) has the
-Docker/Compose files committed; the actual VPS deploy has not run — see
-§ Production.
+standings UI, comms/scheduler, API+MCP seams). Phase 8 Docker/Compose files
+are committed. First VPS deploy is in progress — see § Production.
 
 **Keep this file current.** When you add a route, table, page, or convention,
 update the matching section here in the same change.
@@ -493,21 +492,36 @@ npm test                   # golden-master scoring tests
 
 ## Production
 
-Not yet deployed. `Dockerfile` and `docker-compose.yml` are committed and
-mirror `../pokemon-crm`'s shape exactly (container names `we-auto-league` /
+Hostname `weauto.ethandbard.com`, containers `we-auto-league` /
 `we-auto-league-db`, database `we_auto_league`, port 4000, `edge`/`internal`
-networks). Deployment, the shared Cloudflare tunnel hostname
-(`weauto.ethandbard.com`), Cloudflare Access, and nightly backups all go
-through the `deploy-to-hetzner` skill, the same as every other app on the VPS
-— see its `inventory.json` and `references/onboard-new-project.md` for the
-registration this app still needs.
+networks. Deployment, the shared Cloudflare tunnel, Cloudflare Access, and
+nightly backups go through the `deploy-to-hetzner` skill.
 
-SPF/DKIM/DMARC for the sending subdomain (decision #8) is not yet configured
-— `CF_EMAIL_*` env vars are unset locally, so `email/send.ts` uses the console
-transport. Verify `email/send.ts`'s Cloudflare Email Sending request shape
-against current Cloudflare docs before the first real send; the interface
-(`EmailTransport`) is what the rest of the app depends on, not the request
-shape.
+Production `AUTH_PROVIDER` is `cloudflare-access`. Access PIN maps
+`Cf-Access-Authenticated-User-Email` onto `employees.email` (the seed
+commissioner is `ethan@thebardfamily.com`). Magic-link sessions stay the
+local default. Do not switch production back to `session` until Cloudflare
+Email Sending is configured — `NODE_ENV=production` will not return the
+link in the JSON, and the console transport does not log the URL.
+
+The production image has no `tsx`. After the first deploy, migrate and seed
+with compiled JS, not the npm scripts:
+
+```
+docker compose exec app node server/dist/db/migrate.js
+docker compose exec app node server/dist/scripts/seed.js
+```
+
+`migrate.ts` resolves `drizzle/` from the file's location, not CWD. The
+runtime image copies `fixtures/` because `seed.js` reads
+`fixtures/june-2026-full.json` from the repo root.
+
+SPF/DKIM/DMARC for the sending subdomain (decision #8) is not yet
+configured — `CF_EMAIL_*` env vars are unset, so `email/send.ts` uses the
+console transport. Verify `email/send.ts`'s Cloudflare Email Sending request
+shape against current Cloudflare docs before the first real send; the
+interface (`EmailTransport`) is what the rest of the app depends on, not
+the request shape.
 
 ---
 

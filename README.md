@@ -106,9 +106,14 @@ Postgres on `internal` only. `config.env` is the Compose `env_file` and is
 git-ignored. Deployment itself goes through the `deploy-to-hetzner` skill,
 which also owns the shared Cloudflare tunnel and nightly backups.
 
-Run `npm run db:migrate` (and `npm run seed` once) against the container
-database after the first deploy — the image does not migrate or seed on
-start.
+After the first deploy, migrate and seed from compiled JS inside the app
+container. The image has no `tsx`, so `npm run db:migrate` / `npm run seed`
+do not work there, and the image does not migrate or seed on start:
+
+```bash
+docker compose exec app node server/dist/db/migrate.js
+docker compose exec app node server/dist/scripts/seed.js
+```
 
 ### Troubleshooting
 

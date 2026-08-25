@@ -24,6 +24,9 @@ RUN npm ci --omit=dev
 COPY --from=build /app/server/dist server/dist
 COPY --from=build /app/server/drizzle server/drizzle
 COPY --from=build /app/client/dist client/dist
+# Seed reads fixtures/june-2026-full.json from the repo root. The runtime image
+# has no tsx, so first-deploy seed is `node server/dist/scripts/seed.js`.
+COPY fixtures fixtures
 
 EXPOSE 4000
 CMD ["node", "server/dist/index.js"]
