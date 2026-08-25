@@ -10,13 +10,17 @@ const NAV = [
   { to: '/admin', label: 'Admin', roles: ['commissioner'] },
 ] as const;
 
-export function Sidebar() {
+export function Sidebar({ open, onNavigate }: { open: boolean; onNavigate: () => void }) {
   const { actor, authProvider, loading, signOut } = useCurrentUser();
 
   return (
-    <aside className="flex h-full w-56 shrink-0 flex-col border-r border-hairline bg-surface">
+    <aside
+      className={`fixed inset-y-0 left-0 z-40 flex h-full w-64 shrink-0 flex-col border-r border-hairline bg-surface transition-transform duration-200 ease-out md:static md:z-auto md:w-56 md:translate-x-0 ${
+        open ? 'translate-x-0' : '-translate-x-full'
+      }`}
+    >
       <div className="px-5 py-5">
-        <NavLink to="/" className="font-display text-[13px] font-bold uppercase tracking-wider text-ink">
+        <NavLink to="/" onClick={onNavigate} className="font-display text-[13px] font-bold uppercase tracking-wider text-ink">
           WE Auto<span className="block text-brand">League</span>
         </NavLink>
         <div className="checker-strip mt-3 h-1.5 rounded-sm bg-[length:8px_8px] bg-[position:0_0,4px_4px]" />
@@ -27,8 +31,9 @@ export function Sidebar() {
             key={item.to}
             to={item.to}
             end={'exact' in item ? item.exact : false}
+            onClick={onNavigate}
             className={({ isActive }) =>
-              `rounded-md px-3 py-2 font-display text-[13px] font-medium ${
+              `rounded-md px-3 py-2.5 font-display text-[13px] font-medium md:py-2 ${
                 isActive ? 'bg-brand-wash text-brand' : 'text-ink-2 hover:bg-surface-2 hover:text-ink'
               }`
             }
@@ -49,7 +54,7 @@ export function Sidebar() {
         ) : authProvider === 'cloudflare-access' ? (
           <p className="text-xs text-ink-3">Access email is not on the roster.</p>
         ) : (
-          <NavLink to="/sign-in" className="text-sm font-medium text-brand hover:underline">
+          <NavLink to="/sign-in" onClick={onNavigate} className="text-sm font-medium text-brand hover:underline">
             Sign in
           </NavLink>
         )}
