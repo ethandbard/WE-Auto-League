@@ -495,8 +495,8 @@ npm test                   # golden-master scoring tests
 
 Hostname `weauto.ethandbard.com`, containers `we-auto-league` /
 `we-auto-league-db`, database `we_auto_league`, port 4000, `edge`/`internal`
-networks. Origin is up at `/opt/we-auto-league` (SHA `1083e3c`); ingress
-already names the container. The public URL waits on a proxied CNAME
+networks. Origin is up at `/opt/we-auto-league`; `.deployed-sha` is the
+commit that is running. Ingress already names the container. The public URL waits on a proxied CNAME
 `weauto` → `907697ec-4c60-4b28-9c0e-47a0689de0d1.cfargotunnel.com` and a
 self-hosted Access app using the reusable `allow-emails` policy. Deployment,
 the shared tunnel, Access, and nightly backups go through the
