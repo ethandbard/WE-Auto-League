@@ -71,6 +71,25 @@ export function Enter() {
   const [pasting, setPasting] = useState(false);
   const [pasteSummary, setPasteSummary] = useState<{ matched: number; unmatchedAdvisors: string[]; unmatchedCategories: string[]; parseErrors: string[] } | null>(null);
 
+  function applyPreview(preview: PastePreviewResponse) {
+    setAdvisorValues((prev) => {
+      const next = { ...prev };
+      for (const row of preview.advisorValues) {
+        next[row.employeeId] = { ...next[row.employeeId], ...Object.fromEntries(Object.entries(row.values).map(([k, v]) => [k, String(v)])) };
+      }
+      return next;
+    });
+    if (Object.keys(preview.managerValues).length) {
+      setManagerValues((prev) => ({ ...prev, ...Object.fromEntries(Object.entries(preview.managerValues).map(([k, v]) => [k, String(v)])) }));
+    }
+    setPasteSummary({
+      matched: preview.advisorValues.length,
+      unmatchedAdvisors: preview.unmatchedAdvisors,
+      unmatchedCategories: preview.unmatchedCategories,
+      parseErrors: preview.parseErrors,
+    });
+  }
+
   async function handlePaste(e: React.ClipboardEvent) {
     if (!dealershipId || !period || period.status !== 'open') return;
     const text = e.clipboardData.getData('text');
@@ -80,24 +99,29 @@ export function Enter() {
     setPasteSummary(null);
     try {
       const preview = await api.post<PastePreviewResponse>('/api/import/preview', { dealershipId, periodId: period.id, csvText: text });
-      setAdvisorValues((prev) => {
-        const next = { ...prev };
-        for (const row of preview.advisorValues) {
-          next[row.employeeId] = { ...next[row.employeeId], ...Object.fromEntries(Object.entries(row.values).map(([k, v]) => [k, String(v)])) };
-        }
-        return next;
-      });
-      if (Object.keys(preview.managerValues).length) {
-        setManagerValues((prev) => ({ ...prev, ...Object.fromEntries(Object.entries(preview.managerValues).map(([k, v]) => [k, String(v)])) }));
-      }
-      setPasteSummary({
-        matched: preview.advisorValues.length,
-        unmatchedAdvisors: preview.unmatchedAdvisors,
-        unmatchedCategories: preview.unmatchedCategories,
-        parseErrors: preview.parseErrors,
-      });
+      applyPreview(preview);
     } catch (err) {
       setPasteSummary({ matched: 0, unmatchedAdvisors: [], unmatchedCategories: [], parseErrors: [err instanceof ApiError ? err.message : 'Could not read that paste.'] });
+    } finally {
+      setPasting(false);
+    }
+  }
+
+  async function handleSpreadsheetUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !dealershipId || !period || period.status !== 'open') return;
+    setPasting(true);
+    setPasteSummary(null);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('dealershipId', String(dealershipId));
+      form.append('periodId', String(period.id));
+      const preview = await api.postForm<PastePreviewResponse>('/api/import/preview-xlsx', form);
+      applyPreview(preview);
+    } catch (err) {
+      setPasteSummary({ matched: 0, unmatchedAdvisors: [], unmatchedCategories: [], parseErrors: [err instanceof ApiError ? err.message : 'Could not read that spreadsheet.'] });
     } finally {
       setPasting(false);
     }
@@ -225,10 +249,16 @@ export function Enter() {
             </p>
           )}
           {period?.status === 'open' && (
-            <p className="text-xs text-ink-3">
-              Copy your DMS report (advisor name in the first column, category names across the header) and paste anywhere in the grid below — it matches rows and
-              columns by name, in any order. Arrow keys and Enter move between cells like a spreadsheet.
-            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-xs text-ink-3">
+                Copy your DMS report (advisor name in the first column, category names across the header) and paste anywhere in the grid below — it matches rows and
+                columns by name, in any order. Arrow keys and Enter move between cells like a spreadsheet.
+              </p>
+              <label className="cursor-pointer text-xs font-medium text-brand hover:underline">
+                Upload spreadsheet
+                <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleSpreadsheetUpload} />
+              </label>
+            </div>
           )}
           {pasting && <p className="text-xs text-ink-3">Reading pasted data…</p>}
           {pasteSummary && (

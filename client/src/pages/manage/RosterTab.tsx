@@ -12,14 +12,21 @@ export function RosterTab() {
   const dealerships = dealershipsData?.dealerships ?? [];
   const { periods, selected: period, setSelectedId } = usePeriods();
 
-  const [dealershipId, setDealershipId] = useState<number | null>(null);
+  const [dealershipId, setDealershipId] = useState<number | 'unassigned' | null>(null);
   useEffect(() => {
     if (dealershipId !== null) return;
     if (actor?.dealershipId) setDealershipId(actor.dealershipId);
     else if (dealerships.length) setDealershipId(dealerships[0]!.id);
   }, [actor, dealerships, dealershipId]);
 
-  const { data, loading, error, refetch } = useApi<{ employees: Employee[] }>(dealershipId ? `/api/employees?dealershipId=${dealershipId}&includeArchived=true` : null);
+  const employeesPath =
+    dealershipId === 'unassigned'
+      ? '/api/employees?includeArchived=true'
+      : dealershipId
+        ? `/api/employees?dealershipId=${dealershipId}&includeArchived=true`
+        : null;
+  const { data, loading, error, refetch } = useApi<{ employees: Employee[] }>(employeesPath);
+  const employees = dealershipId === 'unassigned' ? (data?.employees ?? []).filter((e) => e.dealershipId == null) : (data?.employees ?? []);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -27,10 +34,16 @@ export function RosterTab() {
   const [formError, setFormError] = useState<string | null>(null);
 
   async function addEmployee() {
-    if (!dealershipId) return;
+    if (dealershipId === null) return;
     setFormError(null);
     try {
-      await api.post('/api/employees', { dealershipId, name, email, role, alias: name });
+      await api.post('/api/employees', {
+        dealershipId: dealershipId === 'unassigned' ? null : dealershipId,
+        name,
+        email,
+        role,
+        alias: name,
+      });
       setName('');
       setEmail('');
       refetch();
@@ -57,15 +70,34 @@ export function RosterTab() {
     refetch();
   }
 
+  async function rosterAtStore(employee: Employee) {
+    const storeName = window.prompt('Roster at which store? Type the store name or alias.');
+    if (!storeName) return;
+    const match = dealerships.find(
+      (d) => d.name.toLowerCase() === storeName.toLowerCase() || (d.alias && d.alias.toLowerCase() === storeName.toLowerCase()),
+    );
+    if (!match) {
+      window.alert('No store by that name.');
+      return;
+    }
+    await api.patch(`/api/employees/${employee.id}`, { dealershipId: match.id });
+    refetch();
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
-        <select value={dealershipId ?? ''} onChange={(e) => setDealershipId(Number(e.target.value))} className="rounded-md border border-hairline-strong bg-surface px-2.5 py-1.5 text-sm">
+        <select
+          value={dealershipId ?? ''}
+          onChange={(e) => setDealershipId(e.target.value === 'unassigned' ? 'unassigned' : Number(e.target.value))}
+          className="rounded-md border border-hairline-strong bg-surface px-2.5 py-1.5 text-sm"
+        >
           {dealerships.map((d) => (
             <option key={d.id} value={d.id}>
               {d.alias ?? d.name}
             </option>
           ))}
+          {actor?.role === 'commissioner' && <option value="unassigned">Unassigned (floaters)</option>}
         </select>
         <select value={period?.id ?? ''} onChange={(e) => setSelectedId(Number(e.target.value))} className="rounded-md border border-hairline-strong bg-surface px-2.5 py-1.5 text-sm">
           {periods.map((p) => (
@@ -90,7 +122,7 @@ export function RosterTab() {
               </tr>
             </thead>
             <tbody>
-              {data.employees.map((e) => (
+              {employees.map((e) => (
                 <tr key={e.id} className={`border-b border-hairline last:border-0 ${e.archivedAt ? 'opacity-50' : ''}`}>
                   <td className="px-3 py-2 font-medium text-ink">{e.alias ?? e.name}</td>
                   <td className="px-3 py-2 capitalize text-ink-2">{e.role}</td>
@@ -106,6 +138,11 @@ export function RosterTab() {
                             Hide
                           </button>
                         </>
+                      )}
+                      {e.dealershipId == null && !e.archivedAt && actor?.role === 'commissioner' && (
+                        <button onClick={() => rosterAtStore(e)} className="text-xs text-brand hover:underline">
+                          Roster at store
+                        </button>
                       )}
                       <button onClick={() => archive(e)} className="text-xs text-crit hover:underline">
                         {e.archivedAt ? 'Restore' : 'Remove'}

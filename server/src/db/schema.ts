@@ -105,6 +105,8 @@ export const employees = pgTable(
     email: text('email').notNull(),
     role: employeeRoleEnum('role').notNull().default('advisor'),
     hireDate: date('hire_date'),
+    /** Months this unassigned advisor has written service in a row. Reset when rostered. */
+    consecutiveFloaterMonths: integer('consecutive_floater_months').notNull().default(0),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     archivedAt: timestamp('archived_at'),
   },
@@ -345,6 +347,22 @@ export const auditLog = pgTable('audit_log', {
 });
 
 // -------------------------------------------------------------- integration seams --
+
+/**
+ * Extra inboxes CCed on league emails (a GM, the client, an accountant).
+ * Soft-delete via revokedAt, same shape as api_keys.
+ */
+export const emailRecipients = pgTable('email_recipients', {
+  id: serial('id').primaryKey(),
+  leagueId: integer('league_id').notNull().references(() => leagues.id),
+  dealershipId: integer('dealership_id').references(() => dealerships.id),
+  label: text('label').notNull(),
+  email: text('email').notNull(),
+  templates: jsonb('templates').notNull().default(sql`'[]'::jsonb`).$type<string[]>(),
+  createdBy: integer('created_by').notNull().references(() => employees.id),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  revokedAt: timestamp('revoked_at'),
+});
 
 export const apiKeys = pgTable('api_keys', {
   id: serial('id').primaryKey(),

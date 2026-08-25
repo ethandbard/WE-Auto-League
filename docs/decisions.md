@@ -1,6 +1,6 @@
 # Decisions of record
 
-Eight questions the client's brief left open. Each is **decided** so the build can
+Nine questions the client's brief left open. Each is **decided** so the build can
 proceed; none is load-bearing enough that reversing it is expensive. Every one is
 implemented as a league setting or a toggle rather than a hardcoded rule, so
 changing a decision is a configuration change.
@@ -16,7 +16,8 @@ Raise these with the client when convenient. Do not wait on them.
 | 5 | Hidden advisor mid-month — store impact? | **Excluded from the team-score mean** | `participation.status` |
 | 6 | Do the incumbent's eligibility rules carry over? | **Yes, all three, defaulted on** | `leagues.eligibility_rules` |
 | 7 | Who may enter data for a store? | **Manager + named delegates, own store only** | `employees.role`, `delegates` |
-| 8 | Sending domain and winner verification? | **`auto.ethandbard.com`; verification stays manual** | Phase 8 |
+| 8 | Sending domain and winner verification? | **`mail.auto.ethandbard.com`; verification stays manual** | `CF_EMAIL_FROM` |
+| 9 | Standings email: own row or full ranking? | **Full ranking table, plus the recipient's row when they have one** | `email/templates.ts` |
 
 ---
 
@@ -101,16 +102,25 @@ Commissioners may enter for any store; every write is attributed regardless of
 who made it. Advisors have read access to their own card and the published
 standings, and no write access at all.
 
-## 8 — Prototype mails from a subdomain; verification stays human
+## 8 — Prototype mails from a sending subdomain; verification stays human
 
-Sends from `auto.ethandbard.com` with SPF, DKIM and DMARC configured in Phase 8.
-Production would move to the client's domain, which is their DNS to change, not
-ours.
+Sends from `mail.auto.ethandbard.com`. The app hostname is already a CNAME to
+the Cloudflare tunnel, and a hostname cannot hold both a CNAME and the SPF TXT
+record Email Sending needs. Production would move to the client's domain, which
+is their DNS to change, not ours.
 
 Their rules require the monthly winner to submit DMS reports as proof of figures.
 That stays a human process — the platform stores the attachments against the
 period and flags whether they arrived. Automating verification would mean parsing
 DMS exports we have never seen.
+
+## 9 — Standings emails carry the full ranking
+
+The brief says to email the full ranking, not only the recipient's own row. Each
+standings send includes the complete board as a table under the personal line.
+A copy sent to someone with no row on that board (a manager's copy of the
+advisor board, or an extra recipient) omits the personal line and still includes
+the table.
 
 ---
 

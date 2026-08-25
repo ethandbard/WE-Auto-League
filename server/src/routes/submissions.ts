@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { submissions, metricValues, categories, employees, periods, dealerships, leagues, participation } from '../db/schema.js';
 import { asyncHandler, badRequest, notFound } from '../http.js';
 import { requireAuth, requireStoreWrite } from '../middleware.js';
 import { writeAudit } from '../audit.js';
 import { currentWindow } from '../scheduling/windows.js';
+import { storeOrFloaterCondition } from '../roster.js';
 
 export const submissionsRouter = Router();
 
@@ -34,7 +35,7 @@ submissionsRouter.get(
     const roster = await db
       .select()
       .from(employees)
-      .where(and(eq(employees.dealershipId, dealershipId), eq(employees.role, 'advisor'), isNull(employees.archivedAt)));
+      .where(and(eq(employees.role, 'advisor'), storeOrFloaterCondition(dealershipId)));
     const participationRows = await db.select().from(participation).where(eq(participation.periodId, periodId));
     const statusByEmployee = new Map(participationRows.map((p) => [p.employeeId, p.status]));
 

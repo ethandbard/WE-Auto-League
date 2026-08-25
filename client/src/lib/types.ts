@@ -37,7 +37,48 @@ export interface Employee {
   email: string;
   role: 'advisor' | 'manager' | 'commissioner';
   hireDate: string | null;
+  consecutiveFloaterMonths: number;
   archivedAt: string | null;
+}
+
+export interface League {
+  id: number;
+  organizationId: number;
+  name: string;
+  slug: string;
+  timezone: string;
+  submissionDays: number[];
+  submissionCutoffTime: string;
+  latePenaltyValue: string;
+  latePenaltyStacks: boolean;
+  trainingPenaltyValue: string;
+  eligibilityNewHireGraceDays: number;
+  eligibilityMinAdvisorsForManager: number;
+  eligibilityFloaterRuleEnabled: boolean;
+  attainmentCap: string | null;
+  sendingDomain: string | null;
+}
+
+export interface EmailRecipient {
+  id: number;
+  leagueId: number;
+  dealershipId: number | null;
+  label: string;
+  email: string;
+  templates: string[];
+  createdBy: number;
+  createdAt: string;
+  revokedAt: string | null;
+}
+
+export interface EmailLogRow {
+  id: number;
+  template: string;
+  periodId: number | null;
+  recipientEmail: string;
+  status: 'queued' | 'sent' | 'failed';
+  sentAt: string | null;
+  createdAt: string;
 }
 
 export interface RosterMember {

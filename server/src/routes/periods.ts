@@ -8,6 +8,8 @@ import { requireAuth, requireRole } from '../middleware.js';
 import { currentLeague } from '../league.js';
 import { writeAudit } from '../audit.js';
 import { computePeriodScores, publishPeriodScores } from '../scoring/compute.js';
+import { updateFloaterCounters } from '../scoring/eligibility.js';
+import { mailStandingsForPeriod } from '../email/standingsMail.js';
 
 export const periodsRouter = Router();
 
@@ -98,6 +100,7 @@ periodsRouter.post(
 
     const [updated] = await db.update(periods).set({ status: 'locked', lockedAt: new Date() }).where(eq(periods.id, id)).returning();
     const result = await computePeriodScores(id);
+    await updateFloaterCounters(id);
     await writeAudit({ actor: req.actor ?? null, leagueId: period.leagueId, action: 'period.lock', entityType: 'period', entityId: id, after: updated });
     res.json({ period: updated, scoring: result });
   }),
@@ -128,5 +131,28 @@ periodsRouter.post(
     const id = Number(req.params.id);
     const result = await computePeriodScores(id);
     res.json({ scoring: result });
+  }),
+);
+
+/** Commissioner-only manual send of the full ranking. No-op for already-delivered copies. */
+periodsRouter.post(
+  '/:id/mail-standings',
+  requireRole('commissioner'),
+  asyncHandler(async (req, res) => {
+    const id = Number(req.params.id);
+    const [period] = await db.select().from(periods).where(eq(periods.id, id)).limit(1);
+    if (!period) throw notFound('Period not found');
+    if (period.status !== 'published') throw badRequest('Publish the period before mailing standings.');
+
+    const result = await mailStandingsForPeriod(id);
+    await writeAudit({
+      actor: req.actor ?? null,
+      leagueId: period.leagueId,
+      action: 'period.mail_standings',
+      entityType: 'period',
+      entityId: id,
+      after: result,
+    });
+    res.json(result);
   }),
 );

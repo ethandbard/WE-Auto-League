@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { submissions, dealerships, employees, penalties, periods, participation, leagues } from '../db/schema.js';
-import { asyncHandler, badRequest, notFound } from '../http.js';
+import { submissions, dealerships, employees, penalties, periods, participation, leagues, emailLog } from '../db/schema.js';
+import { asyncHandler, badRequest, notFound, paginationFor } from '../http.js';
 import { requireRole } from '../middleware.js';
 import { currentLeague } from '../league.js';
+import { paginationQuery } from '../validation.js';
+import { floaterNeedsRosterEntry } from '../scoring/eligibility.js';
 
 export const adminRouter = Router();
 
@@ -38,11 +40,20 @@ adminRouter.get(
       })
       .filter((w) => w.eligibleAdvisors < w.minimum);
 
+    const floaterWarnings = advisorRows
+      .filter((a) => a.dealershipId == null && floaterNeedsRosterEntry(a.consecutiveFloaterMonths, league.eligibilityFloaterRuleEnabled))
+      .map((a) => ({
+        employeeId: a.id,
+        employeeName: a.alias ?? a.name,
+        consecutiveFloaterMonths: a.consecutiveFloaterMonths,
+      }));
+
     res.json({
       period,
       lateSubmissions: lateSubmissions.map((s) => ({ dealershipId: s.dealershipId, windowDate: s.windowDate, submittedAt: s.submittedAt })),
       trainingFlags,
       storeMinWarnings,
+      floaterWarnings,
       submittedStoreCount: new Set(submissionRows.map((s) => s.dealershipId)).size,
       totalStoreCount: dealershipRows.length,
     });
@@ -64,6 +75,26 @@ adminRouter.get(
       advisorCount: employeeRows.filter((e) => e.role === 'advisor').length,
       managerCount: employeeRows.filter((e) => e.role === 'manager').length,
       currentPeriod: periodRows[0] ?? null,
+    });
+  }),
+);
+
+adminRouter.get(
+  '/email-log',
+  requireRole('commissioner'),
+  asyncHandler(async (req, res) => {
+    const { page, pageSize } = paginationQuery.parse(req.query);
+    const league = await currentLeague();
+    const rows = await db
+      .select()
+      .from(emailLog)
+      .where(eq(emailLog.leagueId, league.id))
+      .orderBy(desc(emailLog.createdAt));
+    const total = rows.length;
+    const offset = (page - 1) * pageSize;
+    res.json({
+      emailLog: rows.slice(offset, offset + pageSize),
+      pagination: paginationFor(page, pageSize, total),
     });
   }),
 );

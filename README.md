@@ -12,8 +12,8 @@ stores against monthly goals, and publishes standings on schedule.
   carry-forward, category and weight editing with a "must total 100" guard,
   and the penalty ledger
 - **Board** — announcements with read receipts
-- **Admin** — compliance (who's late, who's flagged, manager-eligibility
-  warnings), period lock/publish, scoped API keys
+- **Admin** — league settings, teams, employees, email recipients, send
+  standings now, compliance, period lock/publish, scoped API keys
 
 Vite + React + TypeScript + Tailwind on the front, Express + Drizzle +
 PostgreSQL behind it, a scoring engine that's a golden-master-tested pure

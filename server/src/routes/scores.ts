@@ -1,30 +1,13 @@
 import { Router } from 'express';
-import { eq, inArray } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { employees, dealerships, periods } from '../db/schema.js';
+import { dealerships } from '../db/schema.js';
 import { asyncHandler, notFound } from '../http.js';
 import { requireAuth } from '../middleware.js';
 import { currentScoresFor } from '../scoring/compute.js';
+import { decorateScores, fullStandingsFor } from '../scoring/standings.js';
 
 export const scoresRouter = Router();
-
-type Score = Awaited<ReturnType<typeof currentScoresFor>>[number];
-type DecoratedScore = Score & { employeeName: string | null; dealershipName: string | null };
-
-/** Joins employee/dealership display names onto a set of score rows in two batched lookups. */
-async function decorateScores(rows: Score[]): Promise<DecoratedScore[]> {
-  const employeeIds = [...new Set(rows.map((s) => s.employeeId).filter((id): id is number => id != null))];
-  const dealershipIds = [...new Set(rows.map((s) => s.dealershipId).filter((id): id is number => id != null))];
-  const employeeRows = employeeIds.length ? await db.select().from(employees).where(inArray(employees.id, employeeIds)) : [];
-  const dealershipRows = dealershipIds.length ? await db.select().from(dealerships).where(inArray(dealerships.id, dealershipIds)) : [];
-  const employeeById = new Map(employeeRows.map((e) => [e.id, e]));
-  const dealershipById = new Map(dealershipRows.map((d) => [d.id, d]));
-  return rows.map((s) => ({
-    ...s,
-    employeeName: s.employeeId != null ? (employeeById.get(s.employeeId)?.alias ?? employeeById.get(s.employeeId)?.name ?? null) : null,
-    dealershipName: s.dealershipId != null ? (dealershipById.get(s.dealershipId)?.alias ?? dealershipById.get(s.dealershipId)?.name ?? null) : null,
-  }));
-}
 
 /** The Victory Lane board: both leaderboards for a period, in one call. */
 scoresRouter.get(
@@ -32,22 +15,7 @@ scoresRouter.get(
   requireAuth(),
   asyncHandler(async (req, res) => {
     const periodId = Number(req.params.periodId);
-    const [period] = await db.select().from(periods).where(eq(periods.id, periodId)).limit(1);
-    if (!period) throw notFound('Period not found');
-
-    const [advisorScores, managerScores, teamScores] = await Promise.all([
-      currentScoresFor(periodId, 'advisor'),
-      currentScoresFor(periodId, 'manager'),
-      currentScoresFor(periodId, 'team'),
-    ]);
-    const [advisors, managers, teams] = await Promise.all([decorateScores(advisorScores), decorateScores(managerScores), decorateScores(teamScores)]);
-
-    res.json({
-      period,
-      advisors: advisors.sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
-      managers: managers.sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
-      teams: teams.sort((a, b) => Number(b.total) - Number(a.total)),
-    });
+    res.json(await fullStandingsFor(periodId));
   }),
 );
 

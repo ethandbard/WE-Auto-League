@@ -46,5 +46,5 @@ export const env = {
   authProvider: (process.env.AUTH_PROVIDER ?? 'session') === 'cloudflare-access' ? 'cloudflare-access' : 'session',
   cfEmailAccountId: process.env.CF_EMAIL_ACCOUNT_ID ?? '',
   cfEmailApiToken: process.env.CF_EMAIL_API_TOKEN ?? '',
-  cfEmailFrom: process.env.CF_EMAIL_FROM || 'standings@auto.ethandbard.com',
+  cfEmailFrom: process.env.CF_EMAIL_FROM || 'standings@mail.auto.ethandbard.com',
 } as const;

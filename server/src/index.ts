@@ -23,6 +23,8 @@ import { announcementsRouter } from './routes/announcements.js';
 import { adminRouter } from './routes/admin.js';
 import { apiKeysRouter } from './routes/apiKeys.js';
 import { externalRouter } from './routes/external.js';
+import { leaguesRouter } from './routes/leagues.js';
+import { emailRecipientsRouter } from './routes/emailRecipients.js';
 
 const app = express();
 
@@ -51,6 +53,8 @@ app.use('/api/penalties', penaltiesRouter);
 app.use('/api/announcements', announcementsRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/api-keys', apiKeysRouter);
+app.use('/api/leagues', leaguesRouter);
+app.use('/api/email-recipients', emailRecipientsRouter);
 // The scoped-key REST surface — Phase 7's integration seam. Deliberately
 // outside attachActor's session model; external.ts authenticates its own way.
 app.use('/api/v1', externalRouter);

@@ -1,7 +1,8 @@
 // Shared "smart tabular entry" logic: turns a block of pasted-or-uploaded
 // rows (advisor name in column 1, category labels/keys across the header)
 // into the shape `recordSubmission()` expects. Used today by the CSV
-// importer (routes/import.ts, delimiter `,`) and the entry grid's
+// importer (routes/import.ts, delimiter `,`), XLSX import (ingestion/workbook.ts
+// reduces the first sheet to this same shape), and the entry grid's
 // paste-from-spreadsheet handler (delimiter `\t`, what Excel/Sheets put on
 // the clipboard) — factored out here, rather than left inside a route file,
 // so a future MCP tool or other integration can call `resolveTabularRows`
@@ -9,9 +10,9 @@
 // every caller still writes through `recordSubmission` (submissions.ts) for
 // the actual submit, so provenance and audit stay correct regardless of
 // where the rows came from.
-import { and, eq, isNull } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { categories, employees } from '../db/schema.js';
+import { storeOrFloaterCondition } from '../roster.js';
 
 const MANAGER_ROW_MARKERS = new Set(['store', 'manager', 'team']);
 
@@ -70,7 +71,7 @@ export function parseTabular(text: string): ParsedTable {
 
 /** Matches parsed rows against the store's roster (by name/alias) and the league's categories (by label/key). */
 export async function resolveTabularRows(dealershipId: number, parsed: ParsedTable): Promise<ResolvedTable> {
-  const employeeRows = await db.select().from(employees).where(and(eq(employees.dealershipId, dealershipId), isNull(employees.archivedAt)));
+  const employeeRows = await db.select().from(employees).where(storeOrFloaterCondition(dealershipId));
   const employeeByName = new Map(employeeRows.flatMap((e) => [[e.name.toLowerCase(), e], ...(e.alias ? [[e.alias.toLowerCase(), e] as const] : [])]));
   const categoryRows = await db.select().from(categories);
   const categoryByLabelOrKey = new Map(categoryRows.flatMap((c) => [[c.key.toLowerCase(), c], [c.label.toLowerCase(), c]] as const));

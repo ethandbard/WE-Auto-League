@@ -25,7 +25,7 @@ of why if the rule is otherwise unfollowable, and stop.
 |---|---|
 | [README.md](README.md) | Local dev setup, scripts, troubleshooting |
 | [docs/build-plan.html](docs/build-plan.html) | The original plan. Scoring model derivation, architecture, data model, 8 phases. Open in a browser. |
-| [docs/decisions.md](docs/decisions.md) | Eight open questions, all decided. Do not re-litigate. |
+| [docs/decisions.md](docs/decisions.md) | Nine open questions, all decided. Do not re-litigate. |
 | [fixtures/june-2026.json](fixtures/june-2026.json) | Golden-master fixture: 6 advisors + all 8 managers, hand-verified to the cent against the scan. |
 | [fixtures/june-2026-full.json](fixtures/june-2026-full.json) | All 45 advisors + all 8 managers, transcribed from a 6×-magnified render of the scan and cross-validated: every store's team score reproduces the golden fixture exactly. This is what `seed.ts` loads. |
 | [fixtures/verify-fixture.mjs](fixtures/verify-fixture.mjs) | Standalone proof of the scoring formula, no app or deps. `node fixtures/verify-fixture.mjs` |
@@ -186,10 +186,12 @@ not folded into a route handler. `parseTabular` auto-detects comma vs. tab
 delimiter (a browser paste from Excel/Sheets delivers TSV), and
 `resolveTabularRows` matches rows against the roster by name/alias and
 columns against `categories` by label/key, case-insensitive. `routes/import.ts`
-(CSV) and the entry grid's paste handler both call it; a future integration —
+(CSV and XLSX) and the entry grid's paste handler both call it; a future integration —
 an MCP tool that accepts a raw pasted block, a Slack bot, whatever — calls
 the same two functions directly rather than reimplementing matching or going
-through HTTP. No XLSX support yet.
+through HTTP. XLSX files are reduced to `ParsedTable` by
+`ingestion/workbook.ts` (first sheet, via `exceljs`) before the same matcher
+runs.
 
 A `DmsAdapter` stub is not yet built — it stays unimplemented until somebody
 names the client's DMS, per the build plan.
@@ -208,9 +210,10 @@ WE-Auto-League/
 ├── CLAUDE.md                    # this file
 ├── README.md                    # local dev walkthrough
 ├── package.json                 # workspace root; dev/build/seed/test scripts
+├── .github/workflows/ci.yml     # typecheck + golden-master tests on push/PR to master
 ├── docs/
 │   ├── build-plan.html          # the original plan (historical — do not edit)
-│   └── decisions.md             # eight decided open questions
+│   └── decisions.md             # nine decided open questions
 ├── fixtures/
 │   ├── june-2026.json           # strict golden-master fixture (6 advisors + 8 managers)
 │   ├── june-2026-full.json      # full 45-advisor transcription, seed's source
@@ -219,7 +222,8 @@ WE-Auto-League/
 │   ├── drizzle/                 # generated SQL migrations (committed)
 │   ├── drizzle.config.ts        # drizzle-kit config (standalone — see Gotchas)
 │   ├── test/
-│   │   └── scoring.test.ts      # golden-master test, `npm test`
+│   │   ├── scoring.test.ts      # golden-master test, `npm test`
+│   │   └── roster.test.ts       # floater-widened roster does not double-count
 │   └── src/
 │       ├── index.ts             # Express app, route mounting, in-process scheduler, shutdown
 │       ├── env.ts                # dotenv loading + typed env access
@@ -230,24 +234,28 @@ WE-Auto-League/
 │       ├── league.ts             # currentLeague() — single-league-per-deployment helper
 │       ├── validation.ts         # shared Zod schemas (idParam, paginationQuery)
 │       ├── db/
-│       │   ├── schema.ts         # Drizzle table definitions — source of truth, 21 tables
+│       │   ├── schema.ts         # Drizzle table definitions — source of truth, 22 tables
 │       │   ├── client.ts         # pg Pool + drizzle instance
 │       │   ├── create.ts         # CREATE DATABASE if missing
 │       │   └── migrate.ts        # applies drizzle/ migrations
+│       ├── roster.ts             # store employees + unassigned floater advisors
 │       ├── scoring/
 │       │   ├── engine.ts         # pure scoring functions, versioned
-│       │   ├── eligibility.ts    # grace period, hidden/terminated, manager minimum
-│       │   └── compute.ts        # DB orchestration: score a period, rank, publish
+│       │   ├── eligibility.ts    # grace period, hidden/terminated, manager minimum, floater counters
+│       │   ├── compute.ts        # DB orchestration: score a period, rank, publish
+│       │   └── standings.ts      # fullStandingsFor + decorateScores — shared by the API and mail
 │       ├── scheduling/
 │       │   └── windows.ts        # submission-window/cutoff math (luxon, IANA-zone-safe)
 │       ├── ingestion/
-│       │   └── tabular.ts        # parseTabular + resolveTabularRows — shared by CSV import and grid paste
+│       │   ├── tabular.ts        # parseTabular + resolveTabularRows — shared by CSV import, XLSX, and grid paste
+│       │   └── workbook.ts       # parseWorkbookSheet — first sheet of an .xlsx to ParsedTable
 │       ├── scheduler/
 │       │   ├── lock.ts           # Postgres advisory lock wrapper
 │       │   └── jobs.ts           # missed-window penalties, reminders, standings mail
 │       ├── email/
 │       │   ├── send.ts           # EmailTransport (Cloudflare REST / console), sendOnce idempotency
-│       │   └── templates.ts      # standings, reminder, late-penalty, training-flag templates
+│       │   ├── templates.ts      # standings (full ranking table), reminder, late-penalty, training-flag
+│       │   └── standingsMail.ts  # mailStandingsForPeriod — scheduler + POST /mail-standings
 │       ├── mcp/
 │       │   └── server.ts         # MCP tools: submit_metrics, get_standings, post_announcement
 │       ├── routes/
@@ -258,12 +266,14 @@ WE-Auto-League/
 │       │   ├── categories.ts     # list/create + weight editing with the totals-100 guard
 │       │   ├── goals.ts          # per-store goals + carry-forward
 │       │   ├── submissions.ts    # entry grid read + write; exports recordSubmission()
-│       │   ├── import.ts         # CSV preview/commit — thin wrapper over ingestion/tabular.ts + recordSubmission()
+│       │   ├── import.ts         # CSV + XLSX preview/commit — thin wrapper over ingestion + recordSubmission()
 │       │   ├── scores.ts         # standings, advisor card, store view
-│       │   ├── penalties.ts      # manual penalties + training flag
+│       │   ├── penalties.ts      # manual penalties + training flag (mails trainingFlagEmail)
 │       │   ├── announcements.ts  # message board + read receipts
-│       │   ├── admin.ts          # compliance view, workspace overview
+│       │   ├── admin.ts          # compliance view, workspace overview, email log
 │       │   ├── apiKeys.ts        # scoped key issuance/revocation
+│       │   ├── leagues.ts        # GET/PUT /api/leagues/current
+│       │   ├── emailRecipients.ts # extra standings/reminder recipients
 │       │   └── external.ts       # /api/v1 — the scoped-key REST surface
 │       └── scripts/
 │           ├── seed.ts           # loads fixtures/june-2026-full.json as a published period
@@ -300,7 +310,13 @@ WE-Auto-League/
             │   ├── CategoriesTab.tsx
             │   └── PenaltiesTab.tsx
             ├── Announcements.tsx
-            └── Admin.tsx           # compliance, period lock/publish, API keys
+            ├── Admin.tsx           # tab shell: overview, settings, teams, employees, email, API keys
+            └── admin/
+                ├── OverviewTab.tsx
+                ├── LeagueSettingsTab.tsx
+                ├── TeamsTab.tsx
+                ├── EmailTab.tsx
+                └── ApiKeysTab.tsx
 ```
 
 ### Routes (client)
@@ -316,7 +332,7 @@ WE-Auto-League/
 | `/enter` | Data entry grid, scoped to the acting user's store (commissioner picks any) |
 | `/manage` | Roster / Goals / Categories / Penalties tabs — commissioner + manager |
 | `/announcements` | Message board with read receipts |
-| `/admin` | Compliance, period lock/publish/recompute, API keys — commissioner only |
+| `/admin` | League control centre — commissioner only |
 
 Anything unmatched redirects to `/`.
 
@@ -324,11 +340,12 @@ Anything unmatched redirects to `/`.
 
 ## Data model
 
-21 tables in `server/src/db/schema.ts`. Fifteen were in the original plan;
+22 tables in `server/src/db/schema.ts`. Fifteen were in the original plan;
 `delegates`, `announcement_reads`, `api_keys`, `magic_links`, and `sessions`
 were added during Phase 1 because the plan's prose already implied them
 (roles + delegates, read receipts, scoped keys, magic-link sessions) without
-tabulating them.
+tabulating them. `email_recipients` was added so extra inboxes can be CCed on
+league mail.
 
 | Table | Holds | Notes |
 |---|---|---|
@@ -336,7 +353,7 @@ tabulating them.
 | `leagues` | A competition + its settings | Timezone, submission days/cutoff, penalty values, eligibility toggles, `attainmentCap` |
 | `periods` | Contest months | `status`: open → locked → published |
 | `dealerships` | Store, brand, alias | |
-| `employees` | Advisors, managers, commissioners | `role` enum; `dealershipId` null for commissioners |
+| `employees` | Advisors, managers, commissioners | `role` enum; `dealershipId` null for commissioners and floaters; `consecutiveFloaterMonths` tracks unassigned advisors |
 | `delegates` | Who else may write for a store | Decision #7 — manager + named delegates |
 | `participation` | Who counts, per period | eligible / hidden / terminated + reason + who decided |
 | `categories` | Scoring categories | `scope`, `unit`, `isDerived` (true only for manager's `teamScore`) |
@@ -348,6 +365,7 @@ tabulating them.
 | `scores` | Computed results | Append-only, `revision` + `supersededById`; see § Rules |
 | `announcements` / `announcement_reads` | Message board | |
 | `email_log` | Every send | `idempotencyKey` unique — see § Rules |
+| `email_recipients` | Extra inboxes CCed on league mail | Soft-delete via `revokedAt`; `templates` jsonb |
 | `audit_log` | Every write | `actorId` nullable (API/MCP writes attribute to the key's creator instead — see `external.ts`) |
 | `api_keys` | Scoped REST/MCP credentials | `keyHash` only, never the raw key after issuance |
 | `magic_links` / `sessions` | Auth | Hashed tokens, 15-min link expiry, `AUTH_SESSION_DAYS` session expiry |
@@ -374,6 +392,7 @@ need it call `requireAuth()` / `requireRole(...)` / `requireStoreWrite(...)`.
 | POST | `/api/periods/:id/lock` | Marks the latest submission per store final, computes scores |
 | POST | `/api/periods/:id/publish` | Publishes the current revision — immutable from here |
 | POST | `/api/periods/:id/recompute` | Recomputes without publishing (provisional/live leaderboard) |
+| POST | `/api/periods/:id/mail-standings` | Commissioner-only; 400 unless published. Returns `{recipientCount, sent, alreadySent, failed}` |
 | GET/POST | `/api/dealerships` | List / create; `POST /:id/archive`, `/:id/restore` |
 | GET/POST | `/api/employees` | Roster list / create; `PATCH /:id`, `/:id/archive`, `/:id/restore` |
 | PUT | `/api/employees/:id/participation` | Set eligible/hidden/terminated for a period; returns a `warning` if it drops the store below the manager-eligibility minimum |
@@ -383,13 +402,17 @@ need it call `requireAuth()` / `requireRole(...)` / `requireStoreWrite(...)`.
 | GET | `/api/submissions/current` | Entry-grid data: roster, categories, last-filed values, window/cutoff info |
 | POST | `/api/submissions` | File a window — the web grid's write path |
 | POST | `/api/import/preview`, `/commit` | CSV import — same write path, provenance `csv` |
+| POST | `/api/import/preview-xlsx`, `/commit-xlsx` | XLSX import — multipart `file` plus dealershipId/periodId |
 | GET | `/api/scores/:periodId/standings` | Both leaderboards, decorated with names |
 | GET | `/api/scores/:periodId/advisor/:employeeId` | Advisor card: breakdown, gap to next position |
 | GET | `/api/scores/:periodId/dealership/:dealershipId` | Store view: manager + team + roster scores |
 | GET/POST | `/api/penalties` | List / manual penalty; `DELETE /:id` (manual only); `POST /training-flag` |
 | GET/POST | `/api/announcements` | List (with `read` flag for the acting user) / post; `POST /:id/read` |
-| GET | `/api/admin/compliance` | Late submissions, training flags, manager-eligibility warnings for a period |
+| GET | `/api/admin/compliance` | Late submissions, training flags, manager-eligibility and floater warnings for a period |
 | GET | `/api/admin/overview` | Workspace counts |
+| GET | `/api/admin/email-log` | Recent `email_log` rows, paginated |
+| GET/PUT | `/api/leagues/current` | League settings; PUT is commissioner-only |
+| GET/POST | `/api/email-recipients` | Extra recipients; `PATCH /:id`, `POST /:id/revoke` |
 | GET/POST | `/api/api-keys` | List (no hash) / create (raw key returned once); `POST /:id/revoke` |
 | POST | `/api/v1/submit` | Scoped-key submit — `Authorization: Bearer <key>` |
 | GET | `/api/v1/standings` | Scoped-key read |
@@ -458,6 +481,8 @@ need it call `requireAuth()` / `requireRole(...)` / `requireStoreWrite(...)`.
   matching CSV import uses) and merges the result into local state; nothing
   is submitted until the manager reviews and clicks Save. A single-cell paste
   (no `\n` in the clipboard text) falls through to normal input behaviour.
+  **Upload spreadsheet** (`POST /api/import/preview-xlsx`) uses the same
+  preview-then-Save flow.
 - **The entry grid navigates with arrow keys and Enter**, like a spreadsheet
   — `handleGridKeyDown` in `Enter.tsx`. Left/Right always move cell-to-cell
   rather than checking cursor position, because `type="number"` inputs don't
@@ -544,26 +569,19 @@ docker compose exec app node server/dist/scripts/seed.js
 runtime image copies `fixtures/` because `seed.js` reads
 `fixtures/june-2026-full.json` from the repo root.
 
-SPF/DKIM/DMARC for the sending subdomain (decision #8) is not yet
-configured — `CF_EMAIL_*` env vars are unset, so `email/send.ts` uses the
-console transport. Verify `email/send.ts`'s Cloudflare Email Sending request
-shape against current Cloudflare docs before the first real send; the
-interface (`EmailTransport`) is what the rest of the app depends on, not
-the request shape.
+SPF/DKIM/DMARC for the sending subdomain (decision #8,
+`mail.auto.ethandbard.com`) is not yet configured — `CF_EMAIL_*` env vars
+are unset, so `email/send.ts` uses the console transport. The Cloudflare
+path is `/email/sending/send`; a `permanent_bounces` hit is treated as
+`failed`. `CF_EMAIL_FROM` defaults to `standings@mail.auto.ethandbard.com`.
 
 ---
 
 ## Not yet built
 
-- **XLSX import** — CSV only; `docs/build-plan.html` calls out XLSX with
-  column mapping as a stretch beyond the CSV baseline.
 - **`DmsAdapter`** — stays unimplemented until the client names their DMS.
-  `MetricSource` (§ Ingestion) is where it plugs in.
-- **The floater eligibility rule** (`eligibility.ts`'s
-  `floaterNeedsRosterEntry`) is written as a pure predicate but nothing calls
-  it yet — it needs a way to track consecutive months as a floater, which
-  isn't in the schema.
+  `MetricSource` (§ Ingestion) is where it plugs in. `POST /api/v1/submit` is
+  callable by any external script today.
 - **Trend charts across periods** — `AdvisorCard`'s chart is one period's
   category breakdown, not a multi-period trend; there are only two periods of
   data to trend against so far.
-- **CI** — no `.github/workflows` yet.

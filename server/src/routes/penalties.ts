@@ -2,10 +2,12 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { penalties } from '../db/schema.js';
+import { employees, penalties, periods } from '../db/schema.js';
 import { asyncHandler, badRequest } from '../http.js';
 import { requireAuth, requireRole } from '../middleware.js';
 import { writeAudit } from '../audit.js';
+import { sendOnce } from '../email/send.js';
+import { trainingFlagEmail } from '../email/templates.js';
 
 export const penaltiesRouter = Router();
 
@@ -86,6 +88,24 @@ penaltiesRouter.post(
       })
       .returning();
     await writeAudit({ actor: req.actor ?? null, leagueId: null, action: 'penalty.training_flag', entityType: 'penalty', entityId: row!.id, after: row });
+
+    const [employee] = await db.select().from(employees).where(eq(employees.id, body.employeeId)).limit(1);
+    const [period] = await db.select().from(periods).where(eq(periods.id, body.periodId)).limit(1);
+    if (employee && period) {
+      const tpl = trainingFlagEmail({
+        recipientName: employee.alias ?? employee.name,
+        periodLabel: period.label,
+        penaltyValue: body.value,
+      });
+      await sendOnce({
+        leagueId: employee.leagueId,
+        template: 'training-flag',
+        periodId: period.id,
+        to: employee.email,
+        ...tpl,
+      });
+    }
+
     res.status(201).json({ penalty: row });
   }),
 );

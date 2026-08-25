@@ -73,7 +73,12 @@ employeesRouter.patch(
     if (body.dealershipId !== undefined && req.actor!.role !== 'commissioner') {
       throw badRequest('Only a commissioner can transfer an employee to another store.');
     }
-    const [after] = await db.update(employees).set(body).where(eq(employees.id, id)).returning();
+    const becomingRostered = before.dealershipId == null && body.dealershipId != null;
+    const [after] = await db
+      .update(employees)
+      .set(becomingRostered ? { ...body, consecutiveFloaterMonths: 0 } : body)
+      .where(eq(employees.id, id))
+      .returning();
     await writeAudit({ actor: req.actor ?? null, leagueId: before.leagueId, action: 'employee.update', entityType: 'employee', entityId: id, before, after });
     res.json({ employee: after });
   }),

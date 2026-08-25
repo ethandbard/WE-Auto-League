@@ -23,6 +23,7 @@ import {
 } from '../db/schema.js';
 import { scoreAdvisor, scoreTeam, scoreManager, applyPenalties, assignPositions, ENGINE_VERSION } from './engine.js';
 import { isAdvisorScored, type ParticipationStatus } from './eligibility.js';
+import { storeOrFloaterCondition } from '../roster.js';
 
 async function latestSubmission(dealershipId: number, periodId: number) {
   const [row] = await db
@@ -99,10 +100,7 @@ export async function computePeriodScores(periodId: number): Promise<ComputeResu
     if (!submission) continue;
     const mvRows = await db.select().from(metricValues).where(eq(metricValues.submissionId, submission.id));
 
-    const employeeRows = await db
-      .select()
-      .from(employees)
-      .where(and(eq(employees.dealershipId, dealership.id), isNull(employees.archivedAt)));
+    const employeeRows = await db.select().from(employees).where(storeOrFloaterCondition(dealership.id));
     const advisorRows = employeeRows.filter((e) => e.role === 'advisor');
     const managerRow = employeeRows.find((e) => e.role === 'manager') ?? null;
 

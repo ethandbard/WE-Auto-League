@@ -1,10 +1,11 @@
 import { and, eq, isNull, gt } from 'drizzle-orm';
 import { DateTime } from 'luxon';
 import { db } from '../db/client.js';
-import { leagues, periods, dealerships, employees, submissions, penalties, scores, emailLog } from '../db/schema.js';
+import { leagues, periods, dealerships, employees, submissions, penalties } from '../db/schema.js';
 import { scheduledWindowDatesInRange, cutoffForWindowDate, currentWindow } from '../scheduling/windows.js';
 import { sendOnce } from '../email/send.js';
-import { reminderEmail, latePenaltyEmail, standingsEmail } from '../email/templates.js';
+import { reminderEmail, latePenaltyEmail } from '../email/templates.js';
+import { mailStandingsForPeriod } from '../email/standingsMail.js';
 import { withAdvisoryLock } from './lock.js';
 import { env } from '../env.js';
 
@@ -97,26 +98,8 @@ export async function mailPublishedStandings(): Promise<number> {
   let sent = 0;
   const publishedPeriods = await db.select().from(periods).where(eq(periods.status, 'published'));
   for (const period of publishedPeriods) {
-    const [league] = await db.select().from(leagues).where(eq(leagues.id, period.leagueId)).limit(1);
-    if (!league) continue;
-    const rows = await db.select().from(scores).where(and(eq(scores.periodId, period.id), eq(scores.isPublished, true)));
-    for (const row of rows) {
-      if (row.scope === 'team' || row.employeeId == null || row.dealershipId == null || row.position == null) continue;
-      const [employee] = await db.select().from(employees).where(eq(employees.id, row.employeeId)).limit(1);
-      const [dealership] = await db.select().from(dealerships).where(eq(dealerships.id, row.dealershipId)).limit(1);
-      if (!employee || !dealership) continue;
-      const tpl = standingsEmail({
-        periodLabel: period.label,
-        recipientName: employee.alias ?? employee.name,
-        position: row.position,
-        total: Number(row.total),
-        scope: row.scope as 'advisor' | 'manager',
-        dealershipName: dealership.alias ?? dealership.name,
-        standingsUrl: `${env.appBaseUrl}/standings/${period.id}`,
-      });
-      const result = await sendOnce({ leagueId: league.id, template: `standings:${row.scope}`, periodId: period.id, to: employee.email, ...tpl });
-      if (result === 'sent') sent++;
-    }
+    const result = await mailStandingsForPeriod(period.id);
+    sent += result.sent;
   }
   return sent;
 }

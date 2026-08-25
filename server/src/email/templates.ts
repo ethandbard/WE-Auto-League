@@ -1,22 +1,61 @@
+export interface RankingRow {
+  position: number | null;
+  name: string;
+  dealershipName: string | null;
+  total: number;
+}
+
 export interface StandingsEmailData {
   periodLabel: string;
   recipientName: string;
-  position: number;
-  total: number;
+  position: number | null;
+  total: number | null;
   scope: 'advisor' | 'manager';
-  dealershipName: string;
+  dealershipName: string | null;
   standingsUrl: string;
+  ranking: RankingRow[];
+}
+
+function rankingTableHtml(ranking: RankingRow[]): string {
+  const rows = ranking
+    .map((r) => {
+      const place = r.position != null ? `#${r.position}` : '—';
+      const store = r.dealershipName ?? '';
+      return `<tr><td style="padding:4px 8px">${place}</td><td style="padding:4px 8px">${r.name}</td><td style="padding:4px 8px">${store}</td><td style="padding:4px 8px;text-align:right;font-variant-numeric:tabular-nums">${r.total.toFixed(2)}</td></tr>`;
+    })
+    .join('');
+  return `<table style="border-collapse:collapse;margin-top:12px"><thead><tr><th style="text-align:left;padding:4px 8px">#</th><th style="text-align:left;padding:4px 8px">Name</th><th style="text-align:left;padding:4px 8px">Store</th><th style="text-align:right;padding:4px 8px">Score</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function rankingTableText(ranking: RankingRow[]): string {
+  return ranking
+    .map((r) => {
+      const place = r.position != null ? String(r.position).padStart(2, ' ') : ' -';
+      const store = r.dealershipName ? ` (${r.dealershipName})` : '';
+      return `  ${place}. ${r.name}${store}  ${r.total.toFixed(2)}`;
+    })
+    .join('\n');
 }
 
 export function standingsEmail(d: StandingsEmailData): { subject: string; html: string; text: string } {
   const board = d.scope === 'advisor' ? 'Service Advisor Ranking' : 'Manager Ranking';
-  const subject = `${d.periodLabel} standings: you finished #${d.position}`;
+  const personalHtml =
+    d.position != null && d.total != null
+      ? ` You finished <strong>#${d.position}</strong> at <strong>${d.total.toFixed(2)}</strong> points${d.dealershipName ? `, representing ${d.dealershipName}` : ''}.`
+      : '';
+  const personalText =
+    d.position != null && d.total != null
+      ? ` You finished #${d.position} at ${d.total.toFixed(2)} points${d.dealershipName ? `, representing ${d.dealershipName}` : ''}.`
+      : '';
+  const subject =
+    d.position != null ? `${d.periodLabel} standings: you finished #${d.position}` : `${d.periodLabel} standings: ${board}`;
   const html = `
     <p>Hi ${d.recipientName},</p>
-    <p>The ${d.periodLabel} ${board} is final. You finished <strong>#${d.position}</strong> at <strong>${d.total.toFixed(2)}</strong> points, representing ${d.dealershipName}.</p>
+    <p>The ${d.periodLabel} ${board} is final.${personalHtml}</p>
+    ${rankingTableHtml(d.ranking)}
     <p><a href="${d.standingsUrl}">View the full standings</a></p>
   `.trim();
-  const text = `Hi ${d.recipientName},\n\nThe ${d.periodLabel} ${board} is final. You finished #${d.position} at ${d.total.toFixed(2)} points, representing ${d.dealershipName}.\n\nView the full standings: ${d.standingsUrl}`;
+  const text = `Hi ${d.recipientName},\n\nThe ${d.periodLabel} ${board} is final.${personalText}\n\n${rankingTableText(d.ranking)}\n\nView the full standings: ${d.standingsUrl}`;
   return { subject, html, text };
 }
 
