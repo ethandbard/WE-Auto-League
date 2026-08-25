@@ -19,6 +19,7 @@ export function Sidebar() {
         <NavLink to="/" className="font-display text-[13px] font-bold uppercase tracking-wider text-ink">
           WE Auto<span className="block text-brand">League</span>
         </NavLink>
+        <div className="checker-strip mt-3 h-1.5 rounded-sm bg-[length:8px_8px] bg-[position:0_0,4px_4px]" />
       </div>
       <nav className="flex flex-1 flex-col gap-0.5 px-3">
         {NAV.filter((item) => !('roles' in item) || !item.roles || (actor && (item.roles as readonly string[]).includes(actor.role))).map((item) => (

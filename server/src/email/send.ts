@@ -19,16 +19,16 @@ export interface EmailTransport {
 }
 
 /**
- * Cloudflare Email Sending, REST API. The exact request shape is Cloudflare's
- * to define and changes over their product's lifetime — this client targets
- * their account-scoped send endpoint and bearer-token auth, which is the
- * stable part of the contract. Verify the path/payload against current
- * Cloudflare docs before the first real Phase 8 send; nothing else in the app
- * depends on the shape, only on this function's return type.
+ * Cloudflare Email Sending, REST API. Endpoint is `.../email/sending/send`
+ * (not `.../email/send`); the response carries delivery status, not a
+ * message id — `{result: {delivered: string[], permanent_bounces: string[],
+ * queued: string[]}}`. A recipient landing in `permanent_bounces` is a
+ * same-request failure (bad address), not a transient error, so it's treated
+ * as `failed` rather than `sent`.
  */
 class CloudflareEmailTransport implements EmailTransport {
   async send(message: EmailMessage): Promise<{ providerMessageId: string | null }> {
-    const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${env.cfEmailAccountId}/email/send`, {
+    const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${env.cfEmailAccountId}/email/sending/send`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${env.cfEmailApiToken}`,
@@ -45,8 +45,11 @@ class CloudflareEmailTransport implements EmailTransport {
     if (!res.ok) {
       throw new Error(`Cloudflare email send failed: ${res.status} ${await res.text()}`);
     }
-    const body = (await res.json().catch(() => null)) as { result?: { id?: string } } | null;
-    return { providerMessageId: body?.result?.id ?? null };
+    const body = (await res.json().catch(() => null)) as { result?: { delivered?: string[]; permanent_bounces?: string[] } } | null;
+    if (body?.result?.permanent_bounces?.length) {
+      throw new Error(`Cloudflare email send bounced: ${body.result.permanent_bounces.join(', ')}`);
+    }
+    return { providerMessageId: null };
   }
 }
 

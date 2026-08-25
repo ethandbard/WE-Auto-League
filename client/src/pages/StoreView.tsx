@@ -3,8 +3,8 @@ import { usePeriods } from '../lib/usePeriods';
 import { useApi } from '../lib/useApi';
 import { useCurrentUser } from '../lib/useCurrentUser';
 import { PageHeader } from '../components/PageHeader';
-import { Card, Loading, ErrorState, PositionBadge } from '../components/ui';
-import { formatScore, tierForPosition } from '../lib/format';
+import { Card, Loading, ErrorState, PlateBadge, Gauge } from '../components/ui';
+import { formatScore, plateTierForPosition } from '../lib/format';
 import type { Dealership, ScoreRow } from '../lib/types';
 
 interface StoreViewResponse {
@@ -47,21 +47,29 @@ export function StoreView() {
       {data && (
         <div className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Card className="p-5">
+            <Card className="p-5 text-center">
               <p className="font-display text-[11px] font-semibold uppercase tracking-widest text-ink-3">Manager score</p>
               {data.manager ? (
-                <div className="mt-2 flex items-baseline gap-3">
-                  {data.manager.position != null && <PositionBadge position={data.manager.position} tier={tierForPosition(data.manager.position, 8)} />}
-                  <span className="font-mono text-2xl font-semibold text-ink">{formatScore(data.manager.total)}</span>
-                </div>
+                <>
+                  <div className="mt-2 flex justify-center">
+                    <Gauge value={Number(data.manager.total)} max={120} tier={data.manager.position != null ? plateTierForPosition(data.manager.position, 8) : undefined} label="Manager score" size={140} />
+                  </div>
+                  {data.manager.position != null && (
+                    <div className="mt-1 flex justify-center">
+                      <PlateBadge position={data.manager.position} tier={plateTierForPosition(data.manager.position, 8)} />
+                    </div>
+                  )}
+                </>
               ) : (
                 <p className="mt-2 text-sm text-ink-3">Not scored yet</p>
               )}
             </Card>
-            <Card className="p-5">
+            <Card className="p-5 text-center">
               <p className="font-display text-[11px] font-semibold uppercase tracking-widest text-ink-3">Team score</p>
               {data.team ? (
-                <p className="mt-2 font-mono text-2xl font-semibold text-ink">{formatScore(data.team.total)}</p>
+                <div className="mt-2 flex justify-center">
+                  <Gauge value={Number(data.team.total)} max={120} label="Team score" size={140} />
+                </div>
               ) : (
                 <p className="mt-2 text-sm text-ink-3">Not scored yet</p>
               )}

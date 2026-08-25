@@ -28,6 +28,17 @@
   --color-crit-wash: #f6e2e2;
   --color-gold: #a9790a;
   --color-gold-wash: #f8efd9;
+
+  /* Fixed dark rail for checkered banners/plates — unlike --color-ink this never flips light in
+     dark mode, since these are painted panels (always white-on-dark), not body text. */
+  --color-rail: #14171b;
+
+  /* Four-tier "plate" palette for ranked positions — green through red across a field, one flat step
+     per quartile rather than the three-tier good/warn/crit wash used for one-off status chips. */
+  --color-tier-1: oklch(0.58 0.15 148);
+  --color-tier-2: oklch(0.64 0.15 108);
+  --color-tier-3: oklch(0.64 0.17 55);
+  --color-tier-4: oklch(0.56 0.18 25);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -128,6 +139,14 @@ input[type='number'].no-spin::-webkit-outer-spin-button {
     3.5px 3.5px;
   opacity: 0.85;
   border-radius: 2px;
+}
+
+/* Checkered flag strip — the sidebar brand mark and the Home/Standings section dividers. */
+.checker-strip {
+  background-color: var(--color-rail);
+  background-image:
+    linear-gradient(45deg, #fff 25%, transparent 25%, transparent 75%, #fff 75%),
+    linear-gradient(45deg, #fff 25%, transparent 25%, transparent 75%, #fff 75%);
 }
 
 @media (prefers-reduced-motion: reduce) {

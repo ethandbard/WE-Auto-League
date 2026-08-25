@@ -4,8 +4,8 @@ import { usePeriods } from '../lib/usePeriods';
 import { useApi } from '../lib/useApi';
 import { useCurrentUser } from '../lib/useCurrentUser';
 import { PageHeader } from '../components/PageHeader';
-import { Card, Loading, ErrorState, PositionBadge } from '../components/ui';
-import { formatScore, tierForPosition } from '../lib/format';
+import { Card, Loading, ErrorState, PlateBadge, Gauge } from '../components/ui';
+import { plateTierForPosition } from '../lib/format';
 import type { ScoreRow } from '../lib/types';
 
 interface AdvisorCardResponse {
@@ -53,11 +53,20 @@ export function AdvisorCard() {
       {error && <ErrorState message={error} onRetry={refetch} />}
       {data && (
         <div className="grid gap-6 lg:grid-cols-3">
-          <Card className="p-5 lg:col-span-1">
+          <Card className="p-5 text-center lg:col-span-1">
             <p className="font-display text-[11px] font-semibold uppercase tracking-widest text-ink-3">Position</p>
-            <div className="mt-2 flex items-baseline gap-3">
-              {data.position != null && <PositionBadge position={data.position} tier={tierForPosition(data.position, data.totalAdvisors)} />}
-              <span className="font-mono text-3xl font-semibold text-ink">{formatScore(data.score.total)}</span>
+            {data.position != null && (
+              <div className="mt-2 flex justify-center">
+                <PlateBadge position={data.position} tier={plateTierForPosition(data.position, data.totalAdvisors)} size="lg" />
+              </div>
+            )}
+            <div className="mt-2 flex justify-center">
+              <Gauge
+                value={Number(data.score.total)}
+                max={160}
+                tier={data.position != null ? plateTierForPosition(data.position, data.totalAdvisors) : undefined}
+                label="Score"
+              />
             </div>
             <p className="mt-1 text-xs text-ink-3">of {data.totalAdvisors} scored advisors</p>
 

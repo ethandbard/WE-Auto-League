@@ -435,9 +435,21 @@ need it call `requireAuth()` / `requireRole(...)` / `requireStoreWrite(...)`.
   score/number). The one signature flourish is `.checker-corner` — a tiny
   checkered-flag mark, used only on a leaderboard's #1 position
   (`PositionBadge` in `components/ui.tsx`). Don't spend it anywhere else.
-- **Position colouring** (`tierForPosition` in `lib/format.ts`) buckets a
-  ranked list into thirds — good/warn/crit — matching the printed sheet's
-  green-to-red position colouring.
+- **Racing-theme rail elements** — the checkered Victory Lane banner
+  (`Standings`), section band titles, and the sidebar/Home accent strips —
+  paint on `--color-rail` (`#14171b`, invariant) via `.checker-strip`, never
+  `--color-ink`. `--color-ink` is body text and flips light in dark mode;
+  using it for a "dark panel" background washes out to unreadable there.
+- **Position colouring for ranked boards** goes through `PlateBadge` +
+  `plateTierForPosition` (`lib/format.ts`) — a flat four-quartile palette
+  (`--color-tier-1..4`, green→red) rendered as a solid mono "license plate",
+  used by `Standings`' table + podium, `AdvisorCard`, and `StoreView`. The
+  three-tier wash (`tierForPosition`/`PositionBadge`, good/warn/crit) is kept
+  only for one-off status chips (`StatusChip`), not ranked positions.
+- **`Gauge`** (`components/ui.tsx`) is the semicircular score arc on
+  `AdvisorCard` and `StoreView`'s position cards — inline SVG, coloured by
+  plate tier when one applies. It's separate from the Recharts convention
+  below, which is for the category breakdown chart only.
 - **Charts** (`AdvisorCard`'s category breakdown) use Recharts with
   `isAnimationActive={false}` for deterministic rendering, coloured from
   `--color-brand`, not a categorical palette — there's one series.
