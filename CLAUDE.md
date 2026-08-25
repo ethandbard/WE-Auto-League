@@ -6,8 +6,9 @@ stores against monthly goals, and it publishes standings and mails them on
 schedule.
 
 **Status: Phases 1–7 built** (scaffold, scoring engine, data entry, admin,
-standings UI, comms/scheduler, API+MCP seams). Phase 8 Docker/Compose files
-are committed. First VPS deploy is in progress — see § Production.
+standings UI, comms/scheduler, API+MCP seams). Phase 8 origin is running on
+the VPS (`/opt/we-auto-league`); the public hostname still needs the DNS
+CNAME and Access app in the Cloudflare dashboard — see § Production.
 
 **Keep this file current.** When you add a route, table, page, or convention,
 update the matching section here in the same change.
@@ -494,8 +495,12 @@ npm test                   # golden-master scoring tests
 
 Hostname `weauto.ethandbard.com`, containers `we-auto-league` /
 `we-auto-league-db`, database `we_auto_league`, port 4000, `edge`/`internal`
-networks. Deployment, the shared Cloudflare tunnel, Cloudflare Access, and
-nightly backups go through the `deploy-to-hetzner` skill.
+networks. Origin is up at `/opt/we-auto-league` (SHA `1083e3c`); ingress
+already names the container. The public URL waits on a proxied CNAME
+`weauto` → `907697ec-4c60-4b28-9c0e-47a0689de0d1.cfargotunnel.com` and a
+self-hosted Access app using the reusable `allow-emails` policy. Deployment,
+the shared tunnel, Access, and nightly backups go through the
+`deploy-to-hetzner` skill.
 
 Production `AUTH_PROVIDER` is `cloudflare-access`. Access PIN maps
 `Cf-Access-Authenticated-User-Email` onto `employees.email` (the seed
