@@ -1,6 +1,6 @@
 # TODO
 
-Live at auto.ethandbard.com on `8df91a8` (`master`). Migration `0001` is
+Live at auto.ethandbard.com on `5ff4804` (`master`). Migration `0001` is
 applied (`email_recipients`, `employees.consecutive_floater_months`). Do not
 re-run seed. Do not re-fix `email/send.ts` — the path is already
 `/email/sending/send`.
