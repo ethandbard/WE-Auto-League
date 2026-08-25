@@ -7,8 +7,7 @@ schedule.
 
 **Status: Phases 1–7 built** (scaffold, scoring engine, data entry, admin,
 standings UI, comms/scheduler, API+MCP seams). Phase 8 origin is running on
-the VPS (`/opt/we-auto-league`); the public hostname still needs the DNS
-CNAME and Access app in the Cloudflare dashboard — see § Production.
+the VPS at `auto.ethandbard.com` — see § Production.
 
 **Keep this file current.** When you add a route, table, page, or convention,
 update the matching section here in the same change.
@@ -101,7 +100,7 @@ npm workspaces: `server` and `client`, driven from the repo root. This mirrors
 between `src/env.ts` and `drizzle.config.ts` (see Gotchas).
 
 Deployment: multi-stage Docker image, app + Postgres on `edge` and `internal`
-networks, published at `weauto.ethandbard.com` through the shared Cloudflare
+networks, published at `auto.ethandbard.com` through the shared Cloudflare
 named tunnel. Container names `we-auto-league` / `we-auto-league-db`, database
 `we_auto_league`, app port 4000.
 
@@ -493,14 +492,13 @@ npm test                   # golden-master scoring tests
 
 ## Production
 
-Hostname `weauto.ethandbard.com`, containers `we-auto-league` /
+Hostname `auto.ethandbard.com`, containers `we-auto-league` /
 `we-auto-league-db`, database `we_auto_league`, port 4000, `edge`/`internal`
 networks. Origin is up at `/opt/we-auto-league`; `.deployed-sha` is the
-commit that is running. Ingress already names the container. The public URL waits on a proxied CNAME
-`weauto` → `907697ec-4c60-4b28-9c0e-47a0689de0d1.cfargotunnel.com` and a
-self-hosted Access app using the reusable `allow-emails` policy. Deployment,
-the shared tunnel, Access, and nightly backups go through the
-`deploy-to-hetzner` skill.
+commit that is running. Ingress, DNS, and the Access app `auto` (reusable
+`allow-emails` policy) all use this hostname. Deployment, the shared
+tunnel, Access, and nightly backups go through the `deploy-to-hetzner`
+skill.
 
 Production `AUTH_PROVIDER` is `cloudflare-access`. Access PIN maps
 `Cf-Access-Authenticated-User-Email` onto `employees.email` (the seed

@@ -45,5 +45,5 @@ export const env = {
   authSessionDays: int('AUTH_SESSION_DAYS', 30),
   cfEmailAccountId: process.env.CF_EMAIL_ACCOUNT_ID ?? '',
   cfEmailApiToken: process.env.CF_EMAIL_API_TOKEN ?? '',
-  cfEmailFrom: process.env.CF_EMAIL_FROM || 'standings@weauto.ethandbard.com',
+  cfEmailFrom: process.env.CF_EMAIL_FROM || 'standings@auto.ethandbard.com',
 } as const;

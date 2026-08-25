@@ -16,7 +16,7 @@ Raise these with the client when convenient. Do not wait on them.
 | 5 | Hidden advisor mid-month — store impact? | **Excluded from the team-score mean** | `participation.status` |
 | 6 | Do the incumbent's eligibility rules carry over? | **Yes, all three, defaulted on** | `leagues.eligibility_rules` |
 | 7 | Who may enter data for a store? | **Manager + named delegates, own store only** | `employees.role`, `delegates` |
-| 8 | Sending domain and winner verification? | **`weauto.ethandbard.com`; verification stays manual** | Phase 8 |
+| 8 | Sending domain and winner verification? | **`auto.ethandbard.com`; verification stays manual** | Phase 8 |
 
 ---
 
@@ -103,7 +103,7 @@ standings, and no write access at all.
 
 ## 8 — Prototype mails from a subdomain; verification stays human
 
-Sends from `weauto.ethandbard.com` with SPF, DKIM and DMARC configured in Phase 8.
+Sends from `auto.ethandbard.com` with SPF, DKIM and DMARC configured in Phase 8.
 Production would move to the client's domain, which is their DNS to change, not
 ours.
 
