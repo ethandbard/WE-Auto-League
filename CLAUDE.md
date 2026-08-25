@@ -5,9 +5,8 @@ their numbers twice a week, the platform scores and ranks service advisors and
 stores against monthly goals, and it publishes standings and mails them on
 schedule.
 
-**Status: Phases 1–7 built** (scaffold, scoring engine, data entry, admin,
-standings UI, comms/scheduler, API+MCP seams). Phase 8 origin is running on
-the VPS at `auto.ethandbard.com` — see § Production.
+**Status: Phases 1–8 built** and running at `auto.ethandbard.com`. Remaining
+ops and follow-ups are in [TODO.md](TODO.md).
 
 **Keep this file current.** When you add a route, table, page, or convention,
 update the matching section here in the same change.
@@ -25,6 +24,7 @@ of why if the rule is otherwise unfollowable, and stop.
 |---|---|
 | [README.md](README.md) | Local dev setup, scripts, troubleshooting |
 | [docs/build-plan.html](docs/build-plan.html) | The original plan. Scoring model derivation, architecture, data model, 8 phases. Open in a browser. |
+| [TODO.md](TODO.md) | Remaining ops and follow-ups. Read this before picking up work. |
 | [docs/decisions.md](docs/decisions.md) | Nine open questions, all decided. Do not re-litigate. |
 | [fixtures/june-2026.json](fixtures/june-2026.json) | Golden-master fixture: 6 advisors + all 8 managers, hand-verified to the cent against the scan. |
 | [fixtures/june-2026-full.json](fixtures/june-2026-full.json) | All 45 advisors + all 8 managers, transcribed from a 6×-magnified render of the scan and cross-validated: every store's team score reproduces the golden fixture exactly. This is what `seed.ts` loads. |
@@ -208,6 +208,7 @@ WE-Auto-League/
 ├── Dockerfile                   # multi-stage Node 20 image; serves client/dist
 ├── docker-compose.yml           # app + Postgres 16 on edge + internal
 ├── CLAUDE.md                    # this file
+├── TODO.md                      # remaining ops and follow-ups
 ├── README.md                    # local dev walkthrough
 ├── package.json                 # workspace root; dev/build/seed/test scripts
 ├── .github/workflows/ci.yml     # typecheck + golden-master tests on push/PR to master
@@ -557,8 +558,8 @@ is team-wide (pokemon-crm, notebox, and the other Access apps too).
 Magic-link sessions stay the local default. Do not switch production back
 to `session` until Cloudflare Email Sending is configured.
 
-The production image has no `tsx`. After the first deploy, migrate and seed
-with compiled JS, not the npm scripts:
+The production image has no `tsx`. Migrate and seed with compiled JS, not
+the npm scripts. Migration `0001` is already applied. Do not re-run seed:
 
 ```
 docker compose exec app node server/dist/db/migrate.js
@@ -570,18 +571,21 @@ runtime image copies `fixtures/` because `seed.js` reads
 `fixtures/june-2026-full.json` from the repo root.
 
 SPF/DKIM/DMARC for the sending subdomain (decision #8,
-`mail.auto.ethandbard.com`) is not yet configured — `CF_EMAIL_*` env vars
-are unset, so `email/send.ts` uses the console transport. The Cloudflare
-path is `/email/sending/send`; a `permanent_bounces` hit is treated as
-`failed`. `CF_EMAIL_FROM` defaults to `standings@mail.auto.ethandbard.com`.
+`mail.auto.ethandbard.com`) is not yet configured. Production
+`CF_EMAIL_ACCOUNT_ID` and `CF_EMAIL_API_TOKEN` are empty, so
+`email/send.ts` uses the console transport. `CF_EMAIL_FROM` is set.
+Wrangler and the Cloudflare API currently return **Unauthorized [code: 2036]**
+for Email Sending — a token with that permission is required before
+onboarding. The send path is `/email/sending/send`; a `permanent_bounces`
+hit is treated as `failed`. See [TODO.md](TODO.md) item 1.
 
 ---
 
 ## Not yet built
 
-- **`DmsAdapter`** — stays unimplemented until the client names their DMS.
-  `MetricSource` (§ Ingestion) is where it plugs in. `POST /api/v1/submit` is
-  callable by any external script today.
-- **Trend charts across periods** — `AdvisorCard`'s chart is one period's
-  category breakdown, not a multi-period trend; there are only two periods of
-  data to trend against so far.
+See [TODO.md](TODO.md) for the live list. The two items that stay deferred
+on purpose:
+
+- **`DmsAdapter`** — until the client names their DMS. `POST /api/v1/submit`
+  is the seam today.
+- **Trend charts across periods** — `AdvisorCard` still charts one period.

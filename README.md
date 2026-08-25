@@ -143,10 +143,11 @@ docker compose exec app node server/dist/scripts/seed.js
 ## Documentation
 
 [CLAUDE.md](CLAUDE.md) covers architecture, the data model, the API surface,
-and conventions. [docs/build-plan.html](docs/build-plan.html) is the original
+and conventions. [TODO.md](TODO.md) is the remaining-work list for the next
+session. [docs/build-plan.html](docs/build-plan.html) is the original
 build plan — scoring model derivation, phase breakdown, risks. [decisions.md](docs/decisions.md)
-records the eight open questions from the client's brief and how each was
-resolved. Keep all three to facts and rules; no rationale essays beyond what's
+records the nine open questions from the client's brief and how each was
+resolved. Keep these to facts and rules; no rationale essays beyond what's
 already there.
 
 ## License
