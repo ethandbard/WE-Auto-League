@@ -1,6 +1,6 @@
 # TODO
 
-Live at auto.ethandbard.com on `5ff4804` (`master`). Migration `0001` is
+Live at auto.ethandbard.com on `59b65e5` (`master`). Migration `0001` is
 applied (`email_recipients`, `employees.consecutive_floater_months`). Do not
 re-run seed.
 
