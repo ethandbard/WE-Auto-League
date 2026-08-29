@@ -148,7 +148,8 @@ export function RosterImport({ onImported }: { onImported: () => void }) {
               <ul className="mt-1 space-y-0.5">
                 {preview.toCreate.map((r) => (
                   <li key={r.email} className="text-xs text-ink-2">
-                    <span className="font-medium text-ink">{r.name}</span> · {r.email} · {r.role} ·{' '}
+                    {/* A new row falls back to what the server will store when the file omits the column. */}
+                    <span className="font-medium text-ink">{r.name}</span> · {r.email} · {r.role ?? 'advisor'} ·{' '}
                     {r.dealershipName ?? 'unassigned'}
                   </li>
                 ))}

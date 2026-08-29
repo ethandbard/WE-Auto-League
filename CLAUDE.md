@@ -203,6 +203,16 @@ no-op rather than a duplicate. `POST /api/import/roster/{preview,commit}` is
 commissioner-only: a roster file can move somebody between stores, and
 `PATCH /api/employees/:id` already restricts that to a commissioner.
 
+**An absent column states no opinion; a blank cell states a value.** A file
+with no Role column leaves every role alone — it does not default them to
+advisor — and no Store column leaves everybody rostered where they are. A
+present column's blank cell is a real value: a blank Alias clears it and a
+blank Store means floater. Role and Hire Date have no meaningful blank, so
+those cells are treated as unstated. Fields carry `undefined` for unstated
+through `ParsedRosterRow`, and the commit only `set`s what was stated. Without
+this, the Name+Email file that TODO item 1b calls for would demote every
+manager and un-roster every advisor.
+
 `resolveRoster` reads **archived employees too**, because
 `employees_league_email_uq` ignores `archived_at` — treating an archived
 address as new inserts straight into a unique violation. An archived row

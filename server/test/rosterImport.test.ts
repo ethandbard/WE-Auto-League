@@ -4,8 +4,8 @@ import { parseRoster } from '../src/ingestion/roster.js';
 
 const header = 'Name,Email,Alias,Role,Store,Hire Date';
 
-test('parses a plain roster row, defaulting role to advisor', () => {
-  const { rows, errors } = parseRoster(`${header}\nJem Bard,JEM@example.com,Jem,,Toyota PA,2024-03-01`);
+test('parses a plain roster row', () => {
+  const { rows, errors } = parseRoster(`${header}\nJem Bard,JEM@example.com,Jem,Advisor,Toyota PA,2024-03-01`);
   assert.deepEqual(errors, []);
   assert.equal(rows.length, 1);
   assert.deepEqual(rows[0], {
@@ -17,6 +17,28 @@ test('parses a plain roster row, defaulting role to advisor', () => {
     storeName: 'Toyota PA',
     hireDate: '2024-03-01',
   });
+});
+
+test('an absent column states no opinion, so the stored value survives the import', () => {
+  // The address-collection file from TODO 1b: without this, importing it would
+  // demote every manager to advisor and move every advisor to unassigned.
+  const { rows, errors } = parseRoster('Name,Email\nWes Side,wes@example.com');
+  assert.deepEqual(errors, []);
+  assert.equal(rows[0]!.role, undefined);
+  assert.equal(rows[0]!.storeName, undefined);
+  assert.equal(rows[0]!.alias, undefined);
+  assert.equal(rows[0]!.hireDate, undefined);
+});
+
+test('a present column with a blank cell is a stated value, not an absent one', () => {
+  const { rows, errors } = parseRoster(`${header}\nWes Side,wes@example.com,,,,`);
+  assert.deepEqual(errors, []);
+  // Blank Alias clears it and a blank Store means floater, but a blank Role has
+  // no meaning to state and a blank Hire Date must not wipe the stored one.
+  assert.equal(rows[0]!.alias, null);
+  assert.equal(rows[0]!.storeName, null);
+  assert.equal(rows[0]!.role, undefined);
+  assert.equal(rows[0]!.hireDate, undefined);
 });
 
 test('accepts TSV, which is what a spreadsheet paste delivers', () => {

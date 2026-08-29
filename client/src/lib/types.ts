@@ -152,15 +152,19 @@ export interface ApiKey {
   lastUsedAt: string | null;
 }
 
+/**
+ * A field is absent when the imported file had no such column — it states no
+ * opinion and the stored value is left alone. See ingestion/roster.ts.
+ */
 export interface RosterImportRow {
   line: number;
   name: string;
   email: string;
-  alias: string | null;
-  role: 'advisor' | 'manager' | 'commissioner';
-  dealershipId: number | null;
-  dealershipName: string | null;
-  hireDate: string | null;
+  alias?: string | null;
+  role?: 'advisor' | 'manager' | 'commissioner';
+  dealershipId?: number | null;
+  dealershipName?: string | null;
+  hireDate?: string | null;
 }
 
 export interface RosterPreview {

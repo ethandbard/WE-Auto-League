@@ -13,21 +13,33 @@ import { dealerships, employees } from '../db/schema.js';
 
 export type RosterRole = 'advisor' | 'manager' | 'commissioner';
 
-/** Parse output: valid in shape, not yet checked against the league's stores or roster. */
+/**
+ * Parse output: valid in shape, not yet checked against the league's stores or
+ * roster.
+ *
+ * Every optional field distinguishes two states the file genuinely expresses.
+ * `undefined` means the file had no such column, so it states no opinion and
+ * the stored value must be left alone — a Name+Email file collecting addresses
+ * would otherwise demote every manager and un-roster every advisor. A present
+ * column's blank cell is a stated value: a blank Alias clears it, and a blank
+ * Store means floater.
+ */
 export interface ParsedRosterRow {
   /** 1-based row number in the source file, for error messages an admin can act on. */
   line: number;
   name: string;
   email: string;
-  alias: string | null;
-  role: RosterRole;
-  storeName: string | null;
-  hireDate: string | null;
+  alias: string | null | undefined;
+  /** Blank cells stay undefined: there is no meaningful "empty role" to state. */
+  role: RosterRole | undefined;
+  storeName: string | null | undefined;
+  /** Blank cells stay undefined; clearing a hire date by leaving a cell empty would be data loss. */
+  hireDate: string | null | undefined;
 }
 
 export interface RosterRow extends Omit<ParsedRosterRow, 'storeName'> {
-  dealershipId: number | null;
-  dealershipName: string | null;
+  dealershipId: number | null | undefined;
+  dealershipName: string | null | undefined;
 }
 
 export interface ResolvedRoster {
@@ -145,13 +157,16 @@ export function parseRoster(text: string): ParsedRoster {
   if (columns.email === undefined) errors.push('No "Email" column found. Expected one of: ' + COLUMN_ALIASES.email!.join(', ') + '.');
   if (errors.length) return { rows: [], errors };
 
-  const cell = (cells: string[], field: string): string => (columns[field] !== undefined ? (cells[columns[field]!] ?? '') : '');
+  /** undefined when the file has no such column, distinct from a present-but-blank cell. */
+  const cell = (cells: string[], field: string): string | undefined =>
+    columns[field] === undefined ? undefined : (cells[columns[field]!] ?? '');
   const seenEmails = new Set<string>();
   const rows: ParsedRosterRow[] = [];
 
   for (const { line, cells } of split.rows) {
-    const name = cell(cells, 'name');
-    const rawEmail = cell(cells, 'email');
+    // Both columns are proven present above, so these are always strings.
+    const name = cell(cells, 'name')!;
+    const rawEmail = cell(cells, 'email')!;
     const email = rawEmail.toLowerCase();
     if (!name && !rawEmail) continue;
     if (!name) {
@@ -168,14 +183,14 @@ export function parseRoster(text: string): ParsedRoster {
     }
     seenEmails.add(email);
 
-    const rawRole = cell(cells, 'role').toLowerCase();
+    const rawRole = cell(cells, 'role')?.toLowerCase();
     if (rawRole && !ROLE_ALIASES[rawRole]) {
       errors.push(`Row ${line} (${name}): unknown role "${cell(cells, 'role')}". Use advisor, manager, or commissioner.`);
       continue;
     }
 
     const rawHireDate = cell(cells, 'hireDate');
-    let hireDate: string | null = null;
+    let hireDate: string | undefined;
     if (rawHireDate) {
       const normalized = normalizeHireDate(rawHireDate);
       if ('error' in normalized) {
@@ -185,15 +200,18 @@ export function parseRoster(text: string): ParsedRoster {
       hireDate = normalized.date;
     }
 
+    const rawAlias = cell(cells, 'alias');
+    const rawStore = cell(cells, 'store');
+
     rows.push({
       line,
       name,
       email,
-      alias: cell(cells, 'alias') || null,
-      role: rawRole ? ROLE_ALIASES[rawRole]! : 'advisor',
+      alias: rawAlias === undefined ? undefined : rawAlias || null,
+      role: rawRole ? ROLE_ALIASES[rawRole]! : undefined,
       // A blank store is meaningful, not missing: that's a floater advisor, or
       // a commissioner, both of whom carry a null dealershipId. See CLAUDE.md.
-      storeName: cell(cells, 'store') || null,
+      storeName: rawStore === undefined ? undefined : rawStore || null,
       hireDate,
     });
   }
@@ -227,8 +245,8 @@ export async function resolveRoster(text: string): Promise<ResolvedRoster> {
   let unchanged = 0;
 
   for (const { storeName, ...rest } of parsed.rows) {
-    let dealershipId: number | null = null;
-    let dealershipName: string | null = null;
+    let dealershipId: number | null | undefined;
+    let dealershipName: string | null | undefined;
     if (storeName) {
       const store = storeByName.get(storeName.toLowerCase());
       if (!store) {
@@ -238,6 +256,10 @@ export async function resolveRoster(text: string): Promise<ResolvedRoster> {
       }
       dealershipId = store.id;
       dealershipName = store.alias ?? store.name;
+    } else if (storeName === null) {
+      // A stated blank: floater. An absent Store column leaves both undefined.
+      dealershipId = null;
+      dealershipName = null;
     }
 
     const row: RosterRow = { ...rest, dealershipId, dealershipName };
@@ -252,10 +274,16 @@ export async function resolveRoster(text: string): Promise<ResolvedRoster> {
     // the preview for approval rather than applied silently.
     const restore = existing.archivedAt != null;
     if (restore) changes.push('archived → active');
+    // Each field is compared only when the file stated it. An absent column is
+    // no opinion, so it can neither show as a change nor be written on commit.
     if (existing.name !== row.name) changes.push(`name: ${existing.name} → ${row.name}`);
-    if ((existing.alias ?? null) !== row.alias) changes.push(`alias: ${existing.alias ?? '—'} → ${row.alias ?? '—'}`);
-    if (existing.role !== row.role) changes.push(`role: ${existing.role} → ${row.role}`);
-    if (existing.dealershipId !== dealershipId) changes.push(`store: ${storeLabel(existing.dealershipId)} → ${storeLabel(dealershipId)}`);
+    if (row.alias !== undefined && (existing.alias ?? null) !== row.alias) {
+      changes.push(`alias: ${existing.alias ?? '—'} → ${row.alias ?? '—'}`);
+    }
+    if (row.role !== undefined && existing.role !== row.role) changes.push(`role: ${existing.role} → ${row.role}`);
+    if (dealershipId !== undefined && existing.dealershipId !== dealershipId) {
+      changes.push(`store: ${storeLabel(existing.dealershipId)} → ${storeLabel(dealershipId)}`);
+    }
     if (row.hireDate && existing.hireDate !== row.hireDate) changes.push(`hire date: ${existing.hireDate ?? '—'} → ${row.hireDate}`);
 
     if (changes.length === 0) {

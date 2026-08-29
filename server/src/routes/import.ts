@@ -175,14 +175,15 @@ importRouter.post(
       for (const row of resolved.toCreate) {
         const [inserted] = await tx
           .insert(employees)
+          // A new employee needs a concrete value where the file stated none.
           .values({
             leagueId: league.id,
-            dealershipId: row.dealershipId,
+            dealershipId: row.dealershipId ?? null,
             name: row.name,
-            alias: row.alias,
+            alias: row.alias ?? null,
             email: row.email,
-            role: row.role,
-            hireDate: row.hireDate,
+            role: row.role ?? 'advisor',
+            hireDate: row.hireDate ?? null,
           })
           .returning();
         created += 1;
@@ -207,11 +208,13 @@ importRouter.post(
         const becomingRostered = before.dealershipId == null && row.dealershipId != null;
         const [after] = await tx
           .update(employees)
+          // Only fields the file stated. A column the file omits is left alone,
+          // matching the diff the commissioner approved in the preview.
           .set({
             name: row.name,
-            alias: row.alias,
-            role: row.role,
-            dealershipId: row.dealershipId,
+            ...(row.alias !== undefined ? { alias: row.alias } : {}),
+            ...(row.role !== undefined ? { role: row.role } : {}),
+            ...(row.dealershipId !== undefined ? { dealershipId: row.dealershipId } : {}),
             ...(row.hireDate ? { hireDate: row.hireDate } : {}),
             ...(becomingRostered ? { consecutiveFloaterMonths: 0 } : {}),
             ...(row.restore ? { archivedAt: null } : {}),
