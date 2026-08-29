@@ -91,7 +91,7 @@ result — is `server/src/scoring/compute.ts`.
 | ORM / migrations | Drizzle ORM + drizzle-kit |
 | Validation | Zod (every request query/body parsed before use) |
 | Scheduling | node-cron + Postgres advisory locks, in-process by default |
-| Email | Cloudflare Email Sending (REST) in production; console transport locally |
+| Email | Resend (REST) in production; Cloudflare Email Sending as an alternative; console transport locally |
 | MCP | `@modelcontextprotocol/sdk`, stdio transport |
 | Tests | Node's built-in `node:test`, no separate framework |
 
@@ -193,8 +193,45 @@ through HTTP. XLSX files are reduced to `ParsedTable` by
 `ingestion/workbook.ts` (first sheet, via `exceljs`) before the same matcher
 runs.
 
+**Roster import is a separate matcher from metric import.**
+`server/src/ingestion/roster.ts` splits the same way tabular.ts does — pure
+`parseRoster` (header aliases, email/role validation, per-row errors) and
+DB-facing `resolveRoster` (store matching, diff against the existing roster).
+It cannot reuse `parseTabular`, which coerces every non-identifier cell to a
+number. Rows match on **email**, so a re-import of an unchanged file is a
+no-op rather than a duplicate. `POST /api/import/roster/{preview,commit}` is
+commissioner-only: a roster file can move somebody between stores, and
+`PATCH /api/employees/:id` already restricts that to a commissioner.
+
+`resolveRoster` reads **archived employees too**, because
+`employees_league_email_uq` ignores `archived_at` — treating an archived
+address as new inserts straight into a unique violation. An archived row
+resolves to a restore, shown in the preview as its own change. Hire dates are
+normalized to `YYYY-MM-DD` at parse time (ISO, an `.xlsx` date cell's full
+timestamp, or `M/D/YYYY`); anything else is a row error, since the column is a
+Postgres `date` and a bad cell would otherwise fail at insert. Commit runs in
+one transaction so a partial roster can't land, and `writeAudit` takes that
+transaction as its second argument so a rollback drops the audit rows with it.
+
 A `DmsAdapter` stub is not yet built — it stays unimplemented until somebody
 names the client's DMS, per the build plan.
+
+---
+
+## Export
+
+`GET /api/export/:periodId/standings.csv?scope=` and `.xlsx`. Shaping lives in
+`server/src/export/standings.ts`, not the route, so the two formats cannot
+drift — both serialize the same `Sheet[]`.
+
+Sheets stay **purely tabular**: header on row 1, no title banner, no merged
+metadata. These files get re-imported, diffed, and pivoted; period identity
+rides in the filename instead. Every row carries `Engine Version`,
+`Computed At`, and `Published` so an export is self-describing in a pay
+dispute. Category columns are read off the rows rather than a fixed list —
+categories are data — and come out in the same order the Standings table
+shows them. CSV is written with a UTF-8 BOM and CRLF, because Excel is where
+these land.
 
 ---
 
@@ -249,7 +286,10 @@ WE-Auto-League/
 │       │   └── windows.ts        # submission-window/cutoff math (luxon, IANA-zone-safe)
 │       ├── ingestion/
 │       │   ├── tabular.ts        # parseTabular + resolveTabularRows — shared by CSV import, XLSX, and grid paste
-│       │   └── workbook.ts       # parseWorkbookSheet — first sheet of an .xlsx to ParsedTable
+│       │   ├── roster.ts         # parseRoster + resolveRoster — people, not metrics; matches on email
+│       │   └── workbook.ts       # workbookToTsv + parseWorkbookSheet — first sheet of an .xlsx
+│       ├── export/
+│       │   └── standings.ts      # Sheet[] shaping + CSV/XLSX serializers — shared by both export routes
 │       ├── scheduler/
 │       │   ├── lock.ts           # Postgres advisory lock wrapper
 │       │   └── jobs.ts           # missed-window penalties, reminders, standings mail
@@ -267,7 +307,8 @@ WE-Auto-League/
 │       │   ├── categories.ts     # list/create + weight editing with the totals-100 guard
 │       │   ├── goals.ts          # per-store goals + carry-forward
 │       │   ├── submissions.ts    # entry grid read + write; exports recordSubmission()
-│       │   ├── import.ts         # CSV + XLSX preview/commit — thin wrapper over ingestion + recordSubmission()
+│       │   ├── import.ts         # CSV + XLSX preview/commit, plus roster import — thin wrapper over ingestion/
+│       │   ├── export.ts         # standings CSV + XLSX download
 │       │   ├── scores.ts         # standings, advisor card, store view
 │       │   ├── penalties.ts      # manual penalties + training flag (mails trainingFlagEmail)
 │       │   ├── announcements.ts  # message board + read receipts
@@ -307,6 +348,7 @@ WE-Auto-League/
             ├── Manage.tsx          # tab shell for roster/goals/categories/penalties
             ├── manage/
             │   ├── RosterTab.tsx
+            │   ├── RosterImport.tsx  # commissioner-only bulk roster preview/commit
             │   ├── GoalsTab.tsx
             │   ├── CategoriesTab.tsx
             │   └── PenaltiesTab.tsx
@@ -404,6 +446,10 @@ need it call `requireAuth()` / `requireRole(...)` / `requireStoreWrite(...)`.
 | POST | `/api/submissions` | File a window — the web grid's write path |
 | POST | `/api/import/preview`, `/commit` | CSV import — same write path, provenance `csv` |
 | POST | `/api/import/preview-xlsx`, `/commit-xlsx` | XLSX import — multipart `file` plus dealershipId/periodId |
+| POST | `/api/import/roster/preview`, `/commit` | Roster import — commissioner-only; `file` (csv/xlsx) or `text`. Matches on email: known address updates, new one is created |
+| GET | `/api/import/roster/template` | The accepted column labels, so the import UI holds no copy of them |
+| GET | `/api/export/:periodId/standings.csv` | One scope as CSV — `?scope=advisor\|manager\|team` |
+| GET | `/api/export/:periodId/standings.xlsx` | All three scopes as one workbook |
 | GET | `/api/scores/:periodId/standings` | Both leaderboards, decorated with names |
 | GET | `/api/scores/:periodId/advisor/:employeeId` | Advisor card: breakdown, gap to next position |
 | GET | `/api/scores/:periodId/dealership/:dealershipId` | Store view: manager + team + roster scores |
@@ -425,6 +471,10 @@ need it call `requireAuth()` / `requireRole(...)` / `requireStoreWrite(...)`.
 - **Async handlers wrap in `asyncHandler`**; throw `HttpError` (via
   `notFound`/`badRequest`/`forbidden`/`unauthorized`/`conflict`) for expected
   failures.
+- **A unique-index violation is a 409, not a 500.** `errorHandler` maps
+  SQLSTATE `23505` for every route. A handler that can name the colliding
+  field should still pre-check and throw `conflict()` with a message an admin
+  can act on — the global branch is only the backstop for a lost race.
 - **Write authorization is `canWriteForDealership`** (`middleware.ts`):
   commissioner always; a manager or delegate only for their own store.
   `requireStoreWrite(key, source)` reads the dealership id from `req.params`
@@ -537,8 +587,14 @@ Hostname `auto.ethandbard.com`, containers `we-auto-league` /
 networks. Origin is up at `/opt/we-auto-league`; `.deployed-sha` is the
 commit that is running. Ingress, DNS, and the Access app `auto` (reusable
 `allow-emails` policy) all use this hostname. Deployment, the shared
-tunnel, Access, and nightly backups go through the `deploy-to-hetzner`
-skill.
+tunnel, Access, and backups go through the `deploy-to-hetzner` skill.
+
+Backups are **weekly**, not nightly: `backup.sh` runs from cron at
+`0 6 * * 0`, snapshotting a Postgres dump to the R2 bucket
+`ethandbard-vps-backups` via restic, retention
+`--keep-daily 7 --keep-weekly 4 --keep-monthly 6`. Worst-case data loss is
+therefore up to seven days — a full submission cycle. Backups are a property
+of this VPS, not of the app: moving hosts means re-establishing them.
 
 Production `AUTH_PROVIDER` is `cloudflare-access`. Two gates, not one:
 
@@ -570,14 +626,23 @@ docker compose exec app node server/dist/scripts/seed.js
 runtime image copies `fixtures/` because `seed.js` reads
 `fixtures/june-2026-full.json` from the repo root.
 
-SPF/DKIM/DMARC for the sending subdomain (decision #8,
-`mail.auto.ethandbard.com`) is not yet configured. Production
-`CF_EMAIL_ACCOUNT_ID` and `CF_EMAIL_API_TOKEN` are empty, so
-`email/send.ts` uses the console transport. `CF_EMAIL_FROM` is set.
-Wrangler and the Cloudflare API currently return **Unauthorized [code: 2036]**
-for Email Sending — a token with that permission is required before
-onboarding. The send path is `/email/sending/send`; a `permanent_bounces`
-hit is treated as `failed`. See [TODO.md](TODO.md) item 1.
+**Email transport is chosen at boot** by `selectTransport()` in
+`email/send.ts`: `EMAIL_PROVIDER` pins one explicitly (`resend` /
+`cloudflare` / `console`), otherwise the first configured credential wins,
+Resend first. No credential means the console transport — nothing is sent.
+`EMAIL_FROM` is shared by every transport (`CF_EMAIL_FROM` is the old name,
+still read as a fallback).
+
+Resend is the production default: no Workers Paid plan, no sending-subdomain
+onboarding, and generally available rather than in beta. It is the only
+transport that returns a real provider message id, so `email_log`'s
+`providerMessageId` is null on the others. Cloudflare's send path is
+`/email/sending/send`; a `permanent_bounces` hit counts as `failed`.
+
+Production still has no credential set, so the console transport is live and
+**no mail is actually going out**. SPF/DKIM for the sending domain is not
+configured either. See [TODO.md](TODO.md) item 1 — this is what gates moving
+`AUTH_PROVIDER` off `cloudflare-access`.
 
 ---
 

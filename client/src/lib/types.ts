@@ -151,3 +151,29 @@ export interface ApiKey {
   revokedAt: string | null;
   lastUsedAt: string | null;
 }
+
+export interface RosterImportRow {
+  line: number;
+  name: string;
+  email: string;
+  alias: string | null;
+  role: 'advisor' | 'manager' | 'commissioner';
+  dealershipId: number | null;
+  dealershipName: string | null;
+  hireDate: string | null;
+}
+
+export interface RosterPreview {
+  toCreate: RosterImportRow[];
+  toUpdate: Array<RosterImportRow & { employeeId: number; restore: boolean; changes: string[] }>;
+  unchanged: number;
+  errors: string[];
+  unmatchedStores: string[];
+  expectedColumns: string[];
+}
+
+export interface RosterCommitResult {
+  created: number;
+  updated: number;
+  unchanged: number;
+}

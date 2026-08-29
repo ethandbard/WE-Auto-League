@@ -44,7 +44,11 @@ export const env = {
   authSecret: process.env.AUTH_SECRET || 'dev-only-change-me',
   authSessionDays: int('AUTH_SESSION_DAYS', 30),
   authProvider: (process.env.AUTH_PROVIDER ?? 'session') === 'cloudflare-access' ? 'cloudflare-access' : 'session',
+  /** Explicit transport choice. Empty means auto-detect from whichever credential is set — see email/send.ts. */
+  emailProvider: (process.env.EMAIL_PROVIDER ?? '').toLowerCase(),
+  /** Shared by every transport. CF_EMAIL_FROM is the pre-Resend name, still honoured. */
+  emailFrom: process.env.EMAIL_FROM || process.env.CF_EMAIL_FROM || 'standings@mail.auto.ethandbard.com',
+  resendApiKey: process.env.RESEND_API_KEY ?? '',
   cfEmailAccountId: process.env.CF_EMAIL_ACCOUNT_ID ?? '',
   cfEmailApiToken: process.env.CF_EMAIL_API_TOKEN ?? '',
-  cfEmailFrom: process.env.CF_EMAIL_FROM || 'standings@mail.auto.ethandbard.com',
 } as const;

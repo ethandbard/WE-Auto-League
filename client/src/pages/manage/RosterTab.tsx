@@ -4,6 +4,7 @@ import { usePeriods } from '../../lib/usePeriods';
 import { useCurrentUser } from '../../lib/useCurrentUser';
 import { api, ApiError } from '../../lib/api';
 import { Card, Loading, ErrorState, Button } from '../../components/ui';
+import { RosterImport } from './RosterImport';
 import type { Dealership, Employee } from '../../lib/types';
 
 export function RosterTab() {
@@ -171,6 +172,8 @@ export function RosterTab() {
           </Button>
         </div>
       </Card>
+
+      {actor?.role === 'commissioner' && <RosterImport onImported={refetch} />}
     </div>
   );
 }

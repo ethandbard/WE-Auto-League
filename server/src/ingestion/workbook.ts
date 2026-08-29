@@ -14,14 +14,16 @@ function cellText(cell: ExcelJS.Cell): string {
 }
 
 /**
- * First worksheet only, same ParsedTable shape as parseTabular, so
- * resolveTabularRows and the commit path stay unchanged.
+ * First worksheet only, flattened to TSV so any tab-aware parser can consume
+ * it. Tab rather than comma because cell text is passed through unquoted — a
+ * dealership name like "Toyota, PA" would split a CSV line but survives here.
+ * Returns null when there is nothing to read.
  */
-export async function parseWorkbookSheet(buffer: Buffer): Promise<ParsedTable> {
+export async function workbookToTsv(buffer: Buffer): Promise<string | null> {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer as unknown as ExcelJS.Buffer);
   const sheet = workbook.worksheets[0];
-  if (!sheet) return { header: [], rows: [], errors: ['Workbook has no sheets.'] };
+  if (!sheet) return null;
 
   const lines: string[] = [];
   sheet.eachRow({ includeEmpty: false }, (row) => {
@@ -33,6 +35,15 @@ export async function parseWorkbookSheet(buffer: Buffer): Promise<ParsedTable> {
     if (cells.some((c) => c !== '')) lines.push(cells.join('\t'));
   });
 
-  if (lines.length === 0) return { header: [], rows: [], errors: ['The first sheet is empty.'] };
-  return parseTabular(lines.join('\n'));
+  return lines.length ? lines.join('\n') : null;
+}
+
+/**
+ * First worksheet only, same ParsedTable shape as parseTabular, so
+ * resolveTabularRows and the commit path stay unchanged.
+ */
+export async function parseWorkbookSheet(buffer: Buffer): Promise<ParsedTable> {
+  const tsv = await workbookToTsv(buffer);
+  if (tsv === null) return { header: [], rows: [], errors: ['The first sheet is empty, or the workbook has no sheets.'] };
+  return parseTabular(tsv);
 }

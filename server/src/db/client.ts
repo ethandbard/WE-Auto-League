@@ -17,3 +17,10 @@ pool.on('error', (err) => {
 export const db = drizzle(pool, { schema });
 
 export type Database = typeof db;
+/** The handle drizzle hands to a `db.transaction` callback. */
+export type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0];
+/**
+ * Anything that can run a query. A write that must roll back with its audit
+ * row passes the open transaction where a caller would otherwise pass `db`.
+ */
+export type Executor = Database | Transaction;

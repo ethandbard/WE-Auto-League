@@ -1,7 +1,8 @@
 // All writes land here, whatever path they arrive by (web, csv, api, mcp) —
 // see CLAUDE.md. Call from inside the same route handler that performs the
-// write, after it succeeds.
-import { db } from './db/client.js';
+// write, after it succeeds. A write inside a transaction passes that
+// transaction as `executor`, so a rollback takes the audit row with it.
+import { db, type Executor } from './db/client.js';
 import { auditLog } from './db/schema.js';
 import type { Actor } from './auth.js';
 
@@ -16,8 +17,8 @@ export async function writeAudit(entry: {
   before?: unknown;
   after?: unknown;
   provenance?: Provenance;
-}): Promise<void> {
-  await db.insert(auditLog).values({
+}, executor: Executor = db): Promise<void> {
+  await executor.insert(auditLog).values({
     leagueId: entry.leagueId,
     actorId: entry.actor?.employeeId ?? null,
     action: entry.action,

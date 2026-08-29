@@ -50,6 +50,11 @@ export function paginationFor(page: number, pageSize: number, total: number): Pa
   };
 }
 
+/** Postgres `unique_violation`. pg surfaces the SQLSTATE on `code`. */
+export function isUniqueViolation(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { code?: unknown }).code === '23505';
+}
+
 export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
   if (err instanceof ZodError) {
     res.status(400).json({
@@ -60,6 +65,14 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
   }
   if (err instanceof HttpError) {
     res.status(err.status).json({ error: err.message });
+    return;
+  }
+  // A unique-index violation is a client problem — a duplicate — not a server
+  // fault, and it is reachable by racing two writes past a pre-check. Routes
+  // that can name the colliding field should still throw conflict() with a
+  // message an admin can act on; this is the backstop.
+  if (isUniqueViolation(err)) {
+    res.status(409).json({ error: 'That record already exists.' });
     return;
   }
   console.error('[api] unhandled error', err);

@@ -25,7 +25,8 @@ export function Standings() {
       </div>
 
       {periods.length > 0 && (
-        <div className="mb-7 flex justify-end">
+        <div className="mb-7 flex flex-wrap items-center justify-end gap-2">
+          {selected && <ExportLinks periodId={selected.id} />}
           <select
             value={selected?.id ?? ''}
             onChange={(e) => setSelectedId(Number(e.target.value))}
@@ -48,6 +49,30 @@ export function Standings() {
           <Board title="Service Advisor Ranking" rows={data.advisors} kind="advisor" />
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Plain anchors, not fetch-then-blob: the session cookie (or the Access JWT in
+ * production) rides along automatically, and the server's Content-Disposition
+ * names the file. Nothing to hold in memory.
+ */
+function ExportLinks({ periodId }: { periodId: number }) {
+  const base = `/api/export/${periodId}/standings`;
+  const linkClass = 'rounded-md border border-hairline-strong bg-surface px-2.5 py-1.5 text-sm text-ink hover:bg-surface-2';
+  return (
+    <div className="flex items-center gap-2">
+      <span className="font-display text-[11px] font-semibold uppercase tracking-wide text-ink-3">Export</span>
+      <a href={`${base}.xlsx`} className={linkClass}>
+        Excel
+      </a>
+      <a href={`${base}.csv?scope=advisor`} className={linkClass}>
+        Advisors CSV
+      </a>
+      <a href={`${base}.csv?scope=manager`} className={linkClass}>
+        Managers CSV
+      </a>
     </div>
   );
 }

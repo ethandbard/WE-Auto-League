@@ -35,7 +35,7 @@ class CloudflareEmailTransport implements EmailTransport {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: env.cfEmailFrom,
+        from: env.emailFrom,
         to: message.to,
         subject: message.subject,
         html: message.html,
@@ -53,7 +53,39 @@ class CloudflareEmailTransport implements EmailTransport {
   }
 }
 
-/** Local dev / CI default when no Cloudflare token is configured — logs instead of sending. */
+/**
+ * Resend, REST API. The production default: unlike Cloudflare Email Sending it
+ * needs no Workers Paid plan and no sending-subdomain onboarding, and it is
+ * generally available rather than in beta. Non-2xx bodies carry
+ * `{name, message}`; a 2xx returns `{id}`, which is a real provider message id
+ * — Cloudflare has none, so `email_log.providerMessageId` is only populated on
+ * this transport.
+ */
+class ResendEmailTransport implements EmailTransport {
+  async send(message: EmailMessage): Promise<{ providerMessageId: string | null }> {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: env.emailFrom,
+        to: [message.to],
+        subject: message.subject,
+        html: message.html,
+        text: message.text,
+      }),
+    });
+    const body = (await res.json().catch(() => null)) as { id?: string; name?: string; message?: string } | null;
+    if (!res.ok) {
+      throw new Error(`Resend send failed: ${res.status} ${body?.name ?? ''} ${body?.message ?? ''}`.trim());
+    }
+    return { providerMessageId: body?.id ?? null };
+  }
+}
+
+/** Local dev / CI default when no provider credential is configured — logs instead of sending. */
 class ConsoleEmailTransport implements EmailTransport {
   async send(message: EmailMessage): Promise<{ providerMessageId: string | null }> {
     console.log(`[email:console] to=${message.to} subject="${message.subject}"`);
@@ -61,7 +93,26 @@ class ConsoleEmailTransport implements EmailTransport {
   }
 }
 
-const transport: EmailTransport = env.cfEmailApiToken ? new CloudflareEmailTransport() : new ConsoleEmailTransport();
+/**
+ * EMAIL_PROVIDER pins a transport explicitly; otherwise the first configured
+ * credential wins, Resend first. The explicit pin exists so a deployment with
+ * both keys present (mid-migration) is not ambiguous.
+ */
+function selectTransport(): EmailTransport {
+  switch (env.emailProvider) {
+    case 'resend':
+      return new ResendEmailTransport();
+    case 'cloudflare':
+      return new CloudflareEmailTransport();
+    case 'console':
+      return new ConsoleEmailTransport();
+  }
+  if (env.resendApiKey) return new ResendEmailTransport();
+  if (env.cfEmailApiToken) return new CloudflareEmailTransport();
+  return new ConsoleEmailTransport();
+}
+
+const transport: EmailTransport = selectTransport();
 
 export interface SendOnceParams {
   leagueId: number;

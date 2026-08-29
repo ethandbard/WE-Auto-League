@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { and, eq, isNull } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { employees, participation, leagues } from '../db/schema.js';
-import { asyncHandler, notFound, badRequest } from '../http.js';
+import { asyncHandler, notFound, badRequest, conflict } from '../http.js';
 import { requireAuth, requireRole } from '../middleware.js';
 import { currentLeague } from '../league.js';
 import { writeAudit } from '../audit.js';
@@ -42,6 +42,21 @@ employeesRouter.post(
     const league = await currentLeague();
     if (req.actor!.role === 'manager' && body.dealershipId !== req.actor!.dealershipId) {
       throw badRequest('Managers can only add employees to their own store.');
+    }
+    // employees_league_email_uq ignores archived_at, so re-adding somebody who
+    // was archived collides. Naming them beats a bare 409 from errorHandler:
+    // an archived clash is invisible on the roster the admin is looking at.
+    const [clash] = await db
+      .select()
+      .from(employees)
+      .where(and(eq(employees.leagueId, league.id), eq(employees.email, body.email)))
+      .limit(1);
+    if (clash) {
+      throw conflict(
+        clash.archivedAt
+          ? `${clash.name} is on the archived roster with that email. Restore them instead of adding a duplicate.`
+          : `${clash.name} already uses that email.`,
+      );
     }
     const [row] = await db
       .insert(employees)

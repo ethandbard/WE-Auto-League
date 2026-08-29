@@ -2,49 +2,66 @@
 
 Live at auto.ethandbard.com on `5ff4804` (`master`). Migration `0001` is
 applied (`email_recipients`, `employees.consecutive_floater_months`). Do not
-re-run seed. Do not re-fix `email/send.ts` — the path is already
-`/email/sending/send`.
+re-run seed.
 
 ---
 
-## 1. Onboard Cloudflare Email Sending — blocked on plan, not permissions
+## 1. Turn on real email — code is done, needs a key and DNS
 
-Console transport is still live. Production `config.env` has `CF_EMAIL_FROM`
-set and `CF_EMAIL_ACCOUNT_ID` / `CF_EMAIL_API_TOKEN` empty.
+**Resend is wired and is now the default transport** (2026-08-27). The
+Cloudflare transport is kept as an alternative but is no longer the plan:
+Email Sending is gated behind Workers Paid ($5/mo) on account
+`f6afef234770add442ef630ebd2e82c9`, and it is still in public beta. Resend
+needs neither, and its free tier (3,000/mo, 100/day) covers this league's
+volume — roughly 400–500 sends a month.
 
-**Checked 2026-08-25 in the dashboard, not just via the API:** the
-Unauthorized [code: 2036] error isn't a token-permission gap — Email Sending
-(`/email-service/sending`) is gated behind the **Workers Paid** plan on
-account `f6afef234770add442ef630ebd2e82c9`, and this account is still on the
-free tier. The dashboard's only next step is "Purchase Workers Paid." That's
-a subscription purchase, so it needs the account owner to buy it directly —
-not something to do from an agent session. Ethan chose to hold off for now.
+Nothing sends until a credential is set. Production `config.env` currently
+has every email credential empty, so `selectTransport()` falls through to the
+console transport.
 
-Once Workers Paid is purchased, resume here:
+To finish:
 
-1. Confirm Email Sending is enabled on account `f6afef234770add442ef630ebd2e82c9`.
-2. Check whether `_dmarc.ethandbard.com` or `_dmarc.auto.ethandbard.com` already
-   exists — the zone is shared.
-3. Onboard `mail.auto.ethandbard.com` with `npx wrangler email sending enable`
-   or `POST /zones/{zone_id}/email/sending/subdomains`
-   (`"name": "mail.auto.ethandbard.com"`). That adds SPF TXT and DKIM CNAME.
-   Do not put SPF on `auto.ethandbard.com` — that hostname is already a CNAME.
-4. Add a DMARC TXT at `_dmarc.auto.ethandbard.com` if none exists.
-5. Create an API token scoped to Email Sending.
-6. Set `CF_EMAIL_ACCOUNT_ID`, `CF_EMAIL_API_TOKEN`, and
-   `CF_EMAIL_FROM=standings@mail.auto.ethandbard.com`. Write both
+1. Create the Resend account and verify a sending domain. Resend issues the
+   SPF and DKIM records; add them to the zone. Do **not** put SPF on
+   `auto.ethandbard.com` — that hostname is already a CNAME. Use a
+   subdomain (`mail.auto.ethandbard.com`, decision #8).
+2. Check whether `_dmarc.ethandbard.com` already exists before adding one —
+   the zone is shared with the other projects.
+3. Set `RESEND_API_KEY`, `EMAIL_PROVIDER=resend`, and
+   `EMAIL_FROM=standings@mail.auto.ethandbard.com` in both
    `~/.we-auto-league-secrets/config.env` and `/opt/we-auto-league/config.env`.
    Compare checksums first. Do not overwrite production with a local test file.
-7. Recycle the app container so it picks up the env file
+4. Recycle the app container so it picks up the env file
    (`cd /opt/we-auto-league && docker compose up -d`). No image rebuild needed.
-8. In Admin → **Email & communications**, send standings for a published
-   period. Confirm rows in `email_log` and in Cloudflare Email Sending
-   analytics.
+5. In Admin → **Email & communications**, send standings for a published
+   period. Confirm rows in `email_log` (with a non-null `providerMessageId`,
+   which only Resend returns) and in the Resend dashboard.
 
-Until this lands, do not switch production `AUTH_PROVIDER` off
-`cloudflare-access`. Magic-link sign-in needs working mail.
+**Before switching `AUTH_PROVIDER` to `session`, rate-limit
+`POST /api/auth/request-link`.** It is unauthenticated, and Cloudflare Access
+is the only thing in front of it today. On a public URL it is an open
+email-bomb and account-enumeration vector that would also burn the sending
+quota. Rate limiting must land in the same change as the auth switch, not
+after it.
 
-Use the `cloudflare-email-service` and `deploy-to-hetzner` skills.
+Sending should eventually come from the *client's* domain, not
+`ethandbard.com` — that is a handoff asset, and it is what makes the mail
+look like a product rather than a favour.
+
+Use the `deploy-to-hetzner` skill.
+
+## 1b. Collect the roster's email addresses
+
+Blocks everything in item 1 that isn't DNS. The seeded roster has 45 advisors
+and **no email addresses** — the fixture has none, because the source was a
+printed scoreboard. Bulk roster import now exists to load them
+(Manage → Roster → Import roster, commissioner-only, matches on email), so
+this is a data-collection task, not a build task.
+
+Open question for the client, and it may change the product: **do service
+advisors have individual work email?** At a lot of dealerships they don't. If
+they don't, individual advisor logins are the wrong shape and a store-level
+or breakroom-display view is the right one.
 
 ## 2. Verify a backup restore — done, but it uncovered two real bugs
 
@@ -80,6 +97,13 @@ Both fixes are committed to the `agent-skills` repo, not just the VPS copy —
 reinstall (`./install.sh deploy-to-hetzner`) picks them up for other
 projects too.
 
+**Still open: the cadence is wrong for this app.** `backup.sh` runs weekly
+(`0 6 * * 0`), so worst-case loss is seven days — an entire submission cycle,
+for data people are paid against. The retention flags
+(`--keep-daily 7`) imply a daily run that isn't scheduled. Either move the
+cron to daily, or accept a 7-day RPO deliberately and write it down. Backups
+also live entirely on this VPS: moving hosts re-opens this from zero.
+
 ## 3. CC extra recipients on non-standings templates — done
 
 **Done 2026-08-25.** Added `server/src/email/recipients.ts`
@@ -89,6 +113,20 @@ send's store, and CCs each via the existing `sendOnce` idempotency path.
 Wired into `scheduler/jobs.ts` (`reminder`, `late-penalty`) and
 `routes/penalties.ts` (`training-flag`, scoped by the flagged employee's
 `dealershipId`). Typecheck and `npm test` both pass.
+
+## 3b. Standings export and roster import — done
+
+**Done 2026-08-27.** Export: `GET /api/export/:periodId/standings.csv?scope=`
+and `.xlsx` (three sheets), shaped by `server/src/export/standings.ts`, linked
+from the Standings header. Sheets are purely tabular and carry engine version,
+computed-at, and published state per row so an export stands on its own in a
+pay dispute.
+
+Roster import: `POST /api/import/roster/{preview,commit}`, commissioner-only,
+CSV/TSV/XLSX or pasted text, matched on email with a per-field diff in the
+preview and the commit button disabled while any row has an error. Verified
+end-to-end against the dev database: a re-import of an unchanged file is a
+no-op, and both writes landed in `audit_log` with `provenance=csv`.
 
 ## 4. Admin visual redesign — reviewed, nothing to fold in
 
