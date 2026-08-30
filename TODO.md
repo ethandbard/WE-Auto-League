@@ -41,12 +41,9 @@ non-null `providerMessageId`. That field is the tell — only Resend returns
 one, so any row with a null id was written by the console or Cloudflare
 transport.
 
-**Before switching `AUTH_PROVIDER` to `session`, rate-limit
-`POST /api/auth/request-link`.** It is unauthenticated, and Cloudflare Access
-is the only thing in front of it today. On a public URL it is an open
-email-bomb and account-enumeration vector that would also burn the sending
-quota. Rate limiting must land in the same change as the auth switch, not
-after it.
+**Rate limiting `POST /api/auth/request-link` is done** (5 per 15 min per
+client IP, `server/src/rateLimit.ts`), so the switch to `AUTH_PROVIDER=session`
+is no longer blocked on it. What remains is working email for the roster.
 
 Sending should eventually come from the *client's* domain, not
 `ethandbard.com` — that is a handoff asset, and it is what makes the mail

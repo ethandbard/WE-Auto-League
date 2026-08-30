@@ -147,9 +147,19 @@ where the scope doesn't total exactly 100.
 
 **Auth sits behind an interface.** `server/src/auth.ts`'s `resolveActor`
 switches on `AUTH_PROVIDER`: app-native magic-link sessions (`session`,
-default) for the prototype, or a trusted `Cf-Access-Authenticated-User-Email`
-header (`cloudflare-access`) for an enterprise deployment — no route code
-changes either way.
+default) for the prototype, or a verified Cloudflare Access JWT
+(`cloudflare-access`) for an enterprise deployment — no route code changes
+either way.
+
+**The Access identity header is not proof.** `Cf-Access-Authenticated-User-Email`
+is forgeable by anything that reaches the origin without going through the
+tunnel. `resolveViaCloudflareAccess` verifies the signed
+`Cf-Access-Jwt-Assertion` instead — RS256 against
+`<team-domain>/cdn-cgi/access/certs`, checking issuer, audience, and expiry
+(`server/src/accessJwt.ts`, via `jose`). Outside production, a deployment with
+no `CF_ACCESS_TEAM_DOMAIN`/`CF_ACCESS_AUD` falls back to the plain header
+behind a console warning so Access mode can be exercised locally; production
+refuses to boot in that state.
 
 **All writes land in `audit_log`**, whatever path they arrive by — web form,
 CSV import, REST, or MCP. Call `writeAudit()` from `server/src/audit.ts`
@@ -272,11 +282,14 @@ WE-Auto-League/
 │   ├── drizzle.config.ts        # drizzle-kit config (standalone — see Gotchas)
 │   ├── test/
 │   │   ├── scoring.test.ts      # golden-master test, `npm test`
-│   │   └── roster.test.ts       # floater-widened roster does not double-count
+│   │   ├── roster.test.ts       # floater-widened roster does not double-count
+│   │   └── security.test.ts     # production boot guard, rate-limit key, Access claim parsing
 │   └── src/
 │       ├── index.ts             # Express app, route mounting, in-process scheduler, shutdown
-│       ├── env.ts                # dotenv loading + typed env access
+│       ├── env.ts                # dotenv loading + typed env access + the production boot guard
 │       ├── auth.ts               # magic-link + Cloudflare Access auth interface
+│       ├── accessJwt.ts          # Cf-Access-Jwt-Assertion verification (jose, cached JWKS)
+│       ├── rateLimit.ts          # express-rate-limit limiters + the CF-Connecting-IP key
 │       ├── middleware.ts         # attachActor, requireAuth, requireRole, requireStoreWrite
 │       ├── audit.ts              # writeAudit — every write's single funnel
 │       ├── http.ts               # HttpError, asyncHandler, pagination, error middleware
@@ -435,6 +448,11 @@ All routes are under `/api`. Responses are JSON; errors are
 (`wal_session`), attached by `attachActor()` on every request; routes that
 need it call `requireAuth()` / `requireRole(...)` / `requireStoreWrite(...)`.
 
+Every `/api` request passes a rate limiter (`server/src/rateLimit.ts`), which
+answers 429 in the same `{ error }` shape: 300/min across `/api`, 5 per 15 min
+on `POST /api/auth/request-link`, 20 per 15 min on `POST /api/auth/verify`.
+Security headers come from `helmet()` at its defaults.
+
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/health` | Liveness + DB round trip |
@@ -473,7 +491,7 @@ need it call `requireAuth()` / `requireRole(...)` / `requireStoreWrite(...)`.
 | GET/POST | `/api/email-recipients` | Extra recipients; `PATCH /:id`, `POST /:id/revoke` |
 | GET/POST | `/api/api-keys` | List (no hash) / create (raw key returned once); `POST /:id/revoke` |
 | POST | `/api/v1/submit` | Scoped-key submit — `Authorization: Bearer <key>` |
-| GET | `/api/v1/standings` | Scoped-key read |
+| GET | `/api/v1/standings` | Scoped-key read. A key with a `dealershipId` gets that store's rows only |
 
 ### Conventions
 
@@ -493,6 +511,10 @@ need it call `requireAuth()` / `requireRole(...)` / `requireStoreWrite(...)`.
 - **API-key writes (`external.ts`, `mcp/server.ts`) attribute to the key's
   `createdBy`** — there's no session employee for those provenances, so
   `submittedBy`/`issuedBy` fall back to whoever created the key.
+- **A key's `dealershipId` scopes reads as well as writes.** `POST /api/v1/submit`
+  rejects another store's `dealershipId`; `GET /api/v1/standings` filters the
+  result to the key's store. Every `scores` row carries a `dealershipId`, so the
+  filter covers advisor, team, and manager rows alike.
 - **Scores are never queried directly for "current."** Always go through
   `currentScoresFor(periodId, scope?)`, which resolves the highest revision
   per `(scope, employeeId, dealershipId)`.
@@ -608,13 +630,31 @@ about 24 hours. Backups are a property of this VPS, not of the app: moving
 hosts means re-establishing them. Viewing and fixing data (including safe
 SQL surgery) is [docs/data-corrections.md](docs/data-corrections.md).
 
+**The container runs as the unprivileged `node` user.** The app writes nothing
+to disk (uploads are parsed in memory) and listens on 4000, above the
+privileged range. A future feature that needs a writable path must add its own
+`--chown=node:node` directory in the Dockerfile.
+
+**Production refuses to boot on unsafe config** (`assertProductionConfig` in
+`env.ts`): `AUTH_SECRET` unset or still `dev-only-change-me`, or
+`AUTH_PROVIDER=cloudflare-access` without `CF_ACCESS_TEAM_DOMAIN` and
+`CF_ACCESS_AUD`. A container that exits at start with "Refusing to start in
+production" is this guard, and the message names the variable.
+
 Production `AUTH_PROVIDER` is `cloudflare-access`. Two gates, not one:
 
 1. Cloudflare Access (`allow-emails`) is the front door — a PIN for
    `ethan@thebardfamily.com` (and whoever else is on that policy).
-2. The origin then maps `Cf-Access-Authenticated-User-Email` onto
+2. The origin verifies the `Cf-Access-Jwt-Assertion` Access forwards —
+   RS256 against `${CF_ACCESS_TEAM_DOMAIN}/cdn-cgi/access/certs`, issuer,
+   audience, expiry — and maps the verified `email` claim onto
    `employees.email`. The seed commissioner is `ethan@thebardfamily.com`.
    Matching that row is what makes someone a commissioner in the app.
+
+`CF_ACCESS_TEAM_DOMAIN` is `https://ethandbard.cloudflareaccess.com`.
+`CF_ACCESS_AUD` is the Application Audience tag of the Access app `auto`, on
+its Overview page in Zero Trust → Access → Applications. Rotating the Access
+app issues a new AUD tag, and every request 401s until `config.env` catches up.
 
 Do not clear only the client actor on Sign out — Access still has a JWT,
 `/api/auth/me` will restore them, and the magic-link form cannot email.
@@ -663,8 +703,15 @@ The seeded roster is still 53 placeholder `@weauto.local` addresses, so the
 scheduler's reminder and late-penalty mail now hard-bounces. See
 [TODO.md](TODO.md) item 1a before the next submission window.
 
-Moving `AUTH_PROVIDER` off `cloudflare-access` is no longer gated on email;
-it is gated on rate-limiting `POST /api/auth/request-link` — TODO item 1.
+`POST /api/auth/request-link` is now rate-limited (5 per 15 min per client
+IP), so moving `AUTH_PROVIDER` off `cloudflare-access` is no longer gated on
+that. It still needs working email for the roster.
+
+**Express `trust proxy` is off on purpose.** The rate limiter keys on
+`CF-Connecting-IP` with `req.ip` as the fallback (`rateLimit.ts`); trusting
+`X-Forwarded-For` would let anything that reaches the origin outside the
+tunnel choose its own bucket. That only holds while the origin publishes no
+host port — it is on the `edge` network for cloudflared alone.
 
 ---
 

@@ -125,6 +125,10 @@ docker compose exec app node server/dist/scripts/seed.js
 | Magic-link sign-in returns `ok: true` but nothing arrives | Expected locally — `NODE_ENV` isn't `production`, so the link is returned in the response instead of emailed. |
 | Production Sign out left you on a dead email form | The in-app form is the local magic-link flow. Production uses Cloudflare Access; Sign out goes to `/cdn-cgi/access/logout` and the next load is the PIN. |
 | Port 4000 or 5173 already in use | Change `API_PORT` in `.env`; the Vite port is in `client/vite.config.ts`. |
+| Container exits at start with `Refusing to start in production` | The production config guard. The message names the variable: `AUTH_SECRET` is unset or still the default, or `AUTH_PROVIDER=cloudflare-access` without `CF_ACCESS_TEAM_DOMAIN` / `CF_ACCESS_AUD`. Fix `config.env` and redeploy. |
+| Signed in through Cloudflare Access but the app says you are signed out | The Access JWT failed verification — the log line is `[auth] Cloudflare Access JWT rejected`. Usually `CF_ACCESS_AUD` no longer matches the Access app's Application Audience tag, or `CF_ACCESS_TEAM_DOMAIN` is wrong. |
+| `429 Too many sign-in link requests` | The rate limit on `POST /api/auth/request-link` — 5 per 15 minutes per client IP. Wait it out; the window is not resettable from the app. |
+| Access mode locally logs an `INSECURE` banner | Expected. With `CF_ACCESS_TEAM_DOMAIN` / `CF_ACCESS_AUD` unset outside production, the plain identity header is trusted so the mode can be tested. Production refuses to boot in that state. |
 
 ## Scripts
 
