@@ -8,6 +8,7 @@ import { requireAuth, requireRole } from '../middleware.js';
 import { writeAudit } from '../audit.js';
 import { sendOnce } from '../email/send.js';
 import { trainingFlagEmail } from '../email/templates.js';
+import { renderLeagueEmail } from '../email/render.js';
 import { ccExtraRecipients } from '../email/recipients.js';
 
 export const penaltiesRouter = Router();
@@ -93,11 +94,17 @@ penaltiesRouter.post(
     const [employee] = await db.select().from(employees).where(eq(employees.id, body.employeeId)).limit(1);
     const [period] = await db.select().from(periods).where(eq(periods.id, body.periodId)).limit(1);
     if (employee && period) {
-      const tpl = trainingFlagEmail({
+      const data = {
         recipientName: employee.alias ?? employee.name,
         periodLabel: period.label,
         penaltyValue: body.value,
-      });
+      };
+      const tpl = await renderLeagueEmail(
+        employee.leagueId,
+        'training-flag',
+        { ...data, penaltyValue: String(data.penaltyValue) },
+        trainingFlagEmail(data),
+      );
       const send = { leagueId: employee.leagueId, template: 'training-flag', periodId: period.id, ...tpl };
       await sendOnce({ ...send, to: employee.email });
       await ccExtraRecipients(employee.leagueId, 'training-flag', employee.dealershipId, send);

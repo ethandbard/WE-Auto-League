@@ -5,6 +5,7 @@ import { leagues, periods, dealerships, employees, submissions, penalties } from
 import { scheduledWindowDatesInRange, cutoffForWindowDate, currentWindow } from '../scheduling/windows.js';
 import { sendOnce } from '../email/send.js';
 import { reminderEmail, latePenaltyEmail } from '../email/templates.js';
+import { renderLeagueEmail } from '../email/render.js';
 import { mailStandingsForPeriod } from '../email/standingsMail.js';
 import { ccExtraRecipients } from '../email/recipients.js';
 import { withAdvisoryLock } from './lock.js';
@@ -54,7 +55,13 @@ export async function applyMissedWindowPenalties(): Promise<number> {
 
         const manager = (await db.select().from(employees).where(and(eq(employees.dealershipId, dealership.id), eq(employees.role, 'manager')))).at(0);
         if (manager) {
-          const tpl = latePenaltyEmail({ recipientName: manager.alias ?? manager.name, dealershipName: dealership.alias ?? dealership.name, windowDate, penaltyValue: Number(league.latePenaltyValue) });
+          const data = {
+            recipientName: manager.alias ?? manager.name,
+            dealershipName: dealership.alias ?? dealership.name,
+            windowDate,
+            penaltyValue: Number(league.latePenaltyValue),
+          };
+          const tpl = await renderLeagueEmail(league.id, 'late-penalty', { ...data, penaltyValue: String(data.penaltyValue) }, latePenaltyEmail(data));
           const send = { leagueId: league.id, template: `late-penalty:${windowDate}`, periodId: period.id, ...tpl };
           await sendOnce({ ...send, to: manager.email });
           await ccExtraRecipients(league.id, 'late-penalty', dealership.id, send);
@@ -65,7 +72,7 @@ export async function applyMissedWindowPenalties(): Promise<number> {
   return issued;
 }
 
-/** Emails a manager who hasn't filed for the window closing within the next two hours. */
+/** Emails a manager who hasn't filed for the window closing within the league's `reminderLeadHours` (default 2). */
 export async function sendPreDeadlineReminders(): Promise<number> {
   let sent = 0;
   const openPeriods = await db.select().from(periods).where(eq(periods.status, 'open'));
@@ -75,7 +82,7 @@ export async function sendPreDeadlineReminders(): Promise<number> {
     const scheduleSettings = { timezone: league.timezone, submissionDays: league.submissionDays, submissionCutoffTime: league.submissionCutoffTime };
     const window = currentWindow(new Date(), scheduleSettings);
     const hoursToNextCutoff = (window.nextCutoffAtUtc.getTime() - Date.now()) / (60 * 60 * 1000);
-    if (hoursToNextCutoff > 2 || hoursToNextCutoff < 0) continue;
+    if (hoursToNextCutoff > league.reminderLeadHours || hoursToNextCutoff < 0) continue;
 
     const dealershipRows = await db.select().from(dealerships).where(and(eq(dealerships.leagueId, league.id), isNull(dealerships.archivedAt)));
     for (const dealership of dealershipRows) {
@@ -88,7 +95,13 @@ export async function sendPreDeadlineReminders(): Promise<number> {
       const manager = (await db.select().from(employees).where(and(eq(employees.dealershipId, dealership.id), eq(employees.role, 'manager')))).at(0);
       if (!manager) continue;
       const cutoffLocal = DateTime.fromJSDate(window.nextCutoffAtUtc).setZone(league.timezone).toFormat('cccc, LLL d, h:mm a ZZZZ');
-      const tpl = reminderEmail({ recipientName: manager.alias ?? manager.name, dealershipName: dealership.alias ?? dealership.name, cutoffLocal, entryUrl: `${env.appBaseUrl}/enter` });
+      const data = {
+        recipientName: manager.alias ?? manager.name,
+        dealershipName: dealership.alias ?? dealership.name,
+        cutoffLocal,
+        entryUrl: `${env.appBaseUrl}/enter`,
+      };
+      const tpl = await renderLeagueEmail(league.id, 'reminder', data, reminderEmail(data));
       const send = { leagueId: league.id, template: `reminder:${window.nextWindowDate}`, periodId: period.id, ...tpl };
       const result = await sendOnce({ ...send, to: manager.email });
       if (result === 'sent') sent++;
@@ -98,11 +111,18 @@ export async function sendPreDeadlineReminders(): Promise<number> {
   return sent;
 }
 
-/** Mails every ranked advisor and manager once a period is published. */
+/**
+ * Mails every ranked advisor and manager once a period is published, unless
+ * the league has turned auto-mail off. That toggle gates this job only —
+ * Admin's "send standings now" stays available either way, because a
+ * commissioner clicking it is an explicit decision, not a schedule.
+ */
 export async function mailPublishedStandings(): Promise<number> {
   let sent = 0;
   const publishedPeriods = await db.select().from(periods).where(eq(periods.status, 'published'));
   for (const period of publishedPeriods) {
+    const [league] = await db.select().from(leagues).where(eq(leagues.id, period.leagueId)).limit(1);
+    if (!league?.autoMailStandingsOnPublish) continue;
     const result = await mailStandingsForPeriod(period.id);
     sent += result.sent;
   }
