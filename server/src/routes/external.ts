@@ -12,7 +12,6 @@ import { asyncHandler, badRequest, unauthorized, forbidden } from '../http.js';
 import { hashApiKey } from './apiKeys.js';
 import { recordSubmission } from './submissions.js';
 import { currentScoresFor } from '../scoring/compute.js';
-import { writeAudit } from '../audit.js';
 
 export const externalRouter = Router();
 
