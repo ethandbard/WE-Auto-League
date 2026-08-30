@@ -125,20 +125,19 @@ scores wrong (the WC Conv trap in `CLAUDE.md`).
 
 ### Waive a late-submission penalty
 
-Do **not** delete the row, and do **not** edit its reason. The scheduler's
-duplicate check is "a `late_submission` row for this store and period whose
-reason matches this exact text" — delete the row or change one character of
-the reason, and the penalty comes back at full value on the next 15-minute
-tick. Zero the value and leave the reason untouched:
+Zero the value; do **not** delete the row. The scheduler dedupes on
+`penalties.window_date`, so a zeroed row still marks the window as charged
+and the penalty does not come back on the next 15-minute tick. Deleting it
+does bring it back at full value, which is occasionally what you want.
 
 ```sql
-update penalties set value = 0
-where id = <id> and kind = 'late_submission';
+update penalties set value = 0 where id = <id>;
 ```
 
-Put the why in the audit row from rule 3 — that is the only safe place for
-it. The durable fix (dedupe on store + window date, not prose) is on the
-books.
+Leave the `reason` column alone. It records why the penalty was *issued*;
+rewording it no longer affects deduplication, but the row is the ledger entry
+and rewriting history in place is not a correction. Put the why of the waiver
+in the audit row from rule 3.
 
 ### Remove a training penalty
 

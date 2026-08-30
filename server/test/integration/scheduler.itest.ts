@@ -81,6 +81,11 @@ test('the penalised store manager is mailed once', async () => {
   assert.equal(rows[0]!.status, 'sent');
 });
 
+test('the penalty carries the structured window date it dedupes on', async () => {
+  const rows = await latePenalties();
+  assert.equal(rows[0]!.windowDate, WINDOW_DATE);
+});
+
 test('a second run adds no penalty and no second email', async () => {
   const issued = await applyMissedWindowPenalties();
   assert.equal(issued, 0, 'a re-fired job must be a no-op, not a double charge');
@@ -90,4 +95,40 @@ test('a second run adds no penalty and no second email', async () => {
 
   const mail = await db.select().from(emailLog).where(eq(emailLog.recipientEmail, lateManagerEmail));
   assert.equal(mail.length, 1, 'sendOnce dedupes on (template, period, recipient)');
+});
+
+// The waiver in docs/data-corrections.md. Dedup used to key on the reason
+// text, so rewording one — or zeroing a value and letting somebody annotate
+// the reason — brought the penalty back at full value on the next tick.
+test('a waived penalty is not re-issued, whatever its reason says', async () => {
+  const [row] = await latePenalties();
+  await db
+    .update(penalties)
+    .set({ value: '0', reason: 'Waived: the store filed by phone, DMS outage' })
+    .where(eq(penalties.id, row!.id));
+
+  const issued = await applyMissedWindowPenalties();
+  assert.equal(issued, 0, 'zeroing the value or rewording the reason must not re-issue');
+
+  const rows = await latePenalties();
+  assert.equal(rows.length, 1);
+  assert.equal(Number(rows[0]!.value), 0);
+});
+
+// Belt and braces on the same rule: penalties_late_window_uq refuses the
+// duplicate even if a future code path forgets to check first.
+test('the partial unique index refuses a duplicate late penalty for the same window', async () => {
+  const [row] = await latePenalties();
+  await assert.rejects(
+    () =>
+      db.insert(penalties).values({
+        periodId,
+        dealershipId: row!.dealershipId,
+        kind: 'late_submission',
+        value: '2',
+        reason: 'A different reason entirely',
+        windowDate: WINDOW_DATE,
+      }),
+    (err: unknown) => (err as { code?: string }).code === '23505',
+  );
 });
