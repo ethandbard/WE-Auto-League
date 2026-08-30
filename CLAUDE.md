@@ -259,7 +259,7 @@ WE-Auto-League/
 ├── TODO.md                      # remaining ops and follow-ups
 ├── README.md                    # local dev walkthrough
 ├── package.json                 # workspace root; dev/build/seed/test scripts
-├── .github/workflows/ci.yml     # typecheck + golden-master tests on push/PR to master
+├── .github/workflows/ci.yml     # typecheck + both suites + npm audit report, on push/PR to master
 ├── docs/
 │   ├── build-plan.html          # the original plan (historical — do not edit)
 │   └── decisions.md             # nine decided open questions
@@ -272,7 +272,8 @@ WE-Auto-League/
 │   ├── drizzle.config.ts        # drizzle-kit config (standalone — see Gotchas)
 │   ├── test/
 │   │   ├── scoring.test.ts      # golden-master test, `npm test`
-│   │   └── roster.test.ts       # floater-widened roster does not double-count
+│   │   ├── roster.test.ts       # floater-widened roster does not double-count
+│   │   └── integration/         # DB-backed suite, `npm run test:integration` — see § Tests
 │   └── src/
 │       ├── index.ts             # Express app, route mounting, in-process scheduler, shutdown
 │       ├── env.ts                # dotenv loading + typed env access
@@ -553,6 +554,38 @@ need it call `requireAuth()` / `requireRole(...)` / `requireStoreWrite(...)`.
 
 ---
 
+## Tests
+
+Two suites, deliberately separate.
+
+**`npm test` is pure and must stay that way.** `server/test/*.test.ts`,
+node:test, no database, no network. It is the golden-master gate on the
+scoring engine and the ingestion parsers.
+
+**`npm run test:integration` is DB-backed.** `server/test/integration/*.itest.ts`,
+covering the logic that only exists against real rows: `recordSubmission`,
+`canWriteForDealership`, magic-link issue/consume/expiry, and
+`applyMissedWindowPenalties` idempotency. `npm run test:all` runs both.
+
+Rules for the integration suite:
+
+- **Files end `.itest.ts`, never `.test.ts`** — that is the only thing keeping
+  them out of `npm test`'s `test/**/*.test.ts` glob.
+- **The database name must end in `itest` or `_test`.** `harness.ts` refuses to
+  start otherwise, because every reset truncates the whole public schema and
+  `we_auto_league` holds the dev data. The npm script pins
+  `we_auto_league_itest`, plus `AUTH_PROVIDER=session` and
+  `EMAIL_PROVIDER=console` so the transport is chosen deterministically.
+- **`resetDatabase()` in `before()`, `closeDatabase()` in `after()`**, every
+  file. It creates the database if missing, applies `server/drizzle/`, and
+  truncates. Files run with `--test-concurrency=1` because they share it.
+- **Seed inline from `harness.ts`'s fixture helpers, never `scripts/seed.ts`** —
+  a suite should not depend on the shape of the June 2026 fixture.
+- **A test that documents a known bug says so in a comment** and asserts what is
+  true today, so it fails loudly when the bug is fixed rather than silently
+  passing. `submissions.itest.ts`'s orphan-row test is the current example
+  (hardening-plan.md phase 3).
+
 ## Local development
 
 See [README.md](README.md) for the full walkthrough. Short version:
@@ -562,7 +595,8 @@ npm install
 cp .env.example .env      # then edit DATABASE_URL if needed
 npm run setup             # db:create → db:migrate → seed
 npm run dev                # API on :4000, web on :5173
-npm test                   # golden-master scoring tests
+npm test                   # golden-master scoring tests (pure)
+npm run test:integration   # DB-backed suite — see § Tests
 ```
 
 ### Gotchas
