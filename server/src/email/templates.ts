@@ -16,7 +16,8 @@ export interface StandingsEmailData {
   ranking: RankingRow[];
 }
 
-function rankingTableHtml(ranking: RankingRow[]): string {
+/** Exported so a drafted override can offer the same table as a `{{rankingTable}}` placeholder. */
+export function rankingTableHtml(ranking: RankingRow[]): string {
   const rows = ranking
     .map((r) => {
       const place = r.position != null ? `#${r.position}` : '—';
@@ -27,7 +28,7 @@ function rankingTableHtml(ranking: RankingRow[]): string {
   return `<table style="border-collapse:collapse;margin-top:12px"><thead><tr><th style="text-align:left;padding:4px 8px">#</th><th style="text-align:left;padding:4px 8px">Name</th><th style="text-align:left;padding:4px 8px">Store</th><th style="text-align:right;padding:4px 8px">Score</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
-function rankingTableText(ranking: RankingRow[]): string {
+export function rankingTableText(ranking: RankingRow[]): string {
   return ranking
     .map((r) => {
       const place = r.position != null ? String(r.position).padStart(2, ' ') : ' -';

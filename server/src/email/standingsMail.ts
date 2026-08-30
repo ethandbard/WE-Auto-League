@@ -3,14 +3,17 @@ import { db } from '../db/client.js';
 import { employees, emailRecipients, leagues } from '../db/schema.js';
 import { env } from '../env.js';
 import { fullStandingsFor, type DecoratedScore } from '../scoring/standings.js';
-import { sendOnce } from './send.js';
-import { standingsEmail, type RankingRow } from './templates.js';
+import { sendOnce, type SendResult } from './send.js';
+import { standingsEmail, rankingTableHtml, rankingTableText, type RankingRow } from './templates.js';
+import { renderLeagueEmail } from './render.js';
 
 export interface MailStandingsResult {
   recipientCount: number;
   sent: number;
   alreadySent: number;
   failed: number;
+  /** Stopped by the league pause switch or the standings toggle — see email/send.ts. */
+  suppressed: number;
 }
 
 function rankingFrom(rows: DecoratedScore[]): RankingRow[] {
@@ -22,10 +25,11 @@ function rankingFrom(rows: DecoratedScore[]): RankingRow[] {
   }));
 }
 
-function tally(result: MailStandingsResult, status: 'sent' | 'already-sent' | 'failed') {
+function tally(result: MailStandingsResult, status: SendResult) {
   result.recipientCount += 1;
   if (status === 'sent') result.sent += 1;
   else if (status === 'already-sent') result.alreadySent += 1;
+  else if (status === 'suppressed') result.suppressed += 1;
   else result.failed += 1;
 }
 
@@ -39,7 +43,7 @@ function tally(result: MailStandingsResult, status: 'sent' | 'already-sent' | 'f
  * extra recipients subscribed to "standings" both boards (no personal row).
  */
 export async function mailStandingsForPeriod(periodId: number): Promise<MailStandingsResult> {
-  const counts: MailStandingsResult = { recipientCount: 0, sent: 0, alreadySent: 0, failed: 0 };
+  const counts: MailStandingsResult = { recipientCount: 0, sent: 0, alreadySent: 0, failed: 0, suppressed: 0 };
   const standings = await fullStandingsFor(periodId);
   const { period } = standings;
   const [league] = await db.select().from(leagues).where(eq(leagues.id, period.leagueId)).limit(1);
@@ -57,7 +61,7 @@ export async function mailStandingsForPeriod(periodId: number): Promise<MailStan
     row: DecoratedScore | null,
     ranking: RankingRow[],
   ) {
-    const tpl = standingsEmail({
+    const data = {
       periodLabel: period.label,
       recipientName,
       position: row?.position ?? null,
@@ -66,7 +70,31 @@ export async function mailStandingsForPeriod(periodId: number): Promise<MailStan
       dealershipName: row?.dealershipName ?? null,
       standingsUrl,
       ranking,
-    });
+    };
+    const board = scope === 'advisor' ? 'Service Advisor Ranking' : 'Manager Ranking';
+    const personal =
+      data.position != null && data.total != null
+        ? {
+            text: ` You finished #${data.position} at ${data.total.toFixed(2)} points${data.dealershipName ? `, representing ${data.dealershipName}` : ''}.`,
+            html: ` You finished <strong>#${data.position}</strong> at <strong>${data.total.toFixed(2)}</strong> points${data.dealershipName ? `, representing ${data.dealershipName}` : ''}.`,
+          }
+        : { text: '', html: '' };
+    const tpl = await renderLeagueEmail(
+      leagueId,
+      'standings',
+      {
+        recipientName,
+        periodLabel: period.label,
+        board,
+        position: data.position != null ? `#${data.position}` : '—',
+        total: data.total != null ? data.total.toFixed(2) : '—',
+        dealershipName: data.dealershipName ?? '',
+        personalLine: personal,
+        rankingTable: { text: rankingTableText(ranking), html: rankingTableHtml(ranking) },
+        standingsUrl,
+      },
+      standingsEmail(data),
+    );
     const status = await sendOnce({
       leagueId,
       template: `standings:${scope}`,

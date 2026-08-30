@@ -31,7 +31,8 @@ export const provenanceEnum = pgEnum('provenance', ['web', 'csv', 'api', 'mcp', 
 export const penaltyKindEnum = pgEnum('penalty_kind', ['late_submission', 'training_incomplete', 'manual']);
 export const scoreScopeEnum = pgEnum('score_scope', ['advisor', 'manager', 'team']);
 export const announcementAudienceEnum = pgEnum('announcement_audience', ['all', 'managers', 'advisors', 'store']);
-export const emailStatusEnum = pgEnum('email_status', ['queued', 'sent', 'failed']);
+/** `suppressed` is a send the league's pause switch or a template toggle stopped — logged, never handed to the transport. */
+export const emailStatusEnum = pgEnum('email_status', ['queued', 'sent', 'failed', 'suppressed']);
 
 // ---------------------------------------------------------------- tenancy --
 
@@ -60,6 +61,20 @@ export const leagues = pgTable('leagues', {
   /** Null = uncapped, the June sheet's behaviour and the default. */
   attainmentCap: numeric('attainment_cap', { precision: 12, scale: 4 }),
   sendingDomain: text('sending_domain'),
+  /** Master switch for league mail. Enforced centrally in email/send.ts's sendOnce; magic-link mail is exempt. */
+  emailPaused: boolean('email_paused').notNull().default(false),
+  /**
+   * Per-template on/off, keyed by the template key `sendOnce` derives from its
+   * `template` string. jsonb on the league rather than its own table: the keys
+   * are fixed by the functions in email/templates.ts, they are read together
+   * with `emailPaused` on every send, and an absent key means enabled — so a
+   * fifth template ships without a backfill.
+   */
+  emailTemplatesEnabled: jsonb('email_templates_enabled').notNull().default(sql`'{}'::jsonb`).$type<Record<string, boolean>>(),
+  /** How many hours before a submission cutoff the reminder job fires. */
+  reminderLeadHours: integer('reminder_lead_hours').notNull().default(2),
+  /** Gates the scheduler's standings mail only. Admin's "send standings now" ignores it. */
+  autoMailStandingsOnPublish: boolean('auto_mail_standings_on_publish').notNull().default(true),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
@@ -330,6 +345,29 @@ export const emailLog = pgTable('email_log', {
   sentAt: timestamp('sent_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
+
+/**
+ * A commissioner's edited subject/body for one template, with `{{placeholder}}`
+ * substitution. Its own table rather than more jsonb on `leagues`: a draft is
+ * free text a person edits and can revert, and it carries its own author and
+ * timestamp. Absent row = the code default in email/templates.ts still ships.
+ */
+export const emailTemplateOverrides = pgTable(
+  'email_template_overrides',
+  {
+    id: serial('id').primaryKey(),
+    leagueId: integer('league_id').notNull().references(() => leagues.id),
+    /** One of the four keys in email/overrides.ts: reminder, late-penalty, standings, training-flag. */
+    templateKey: text('template_key').notNull(),
+    subject: text('subject').notNull(),
+    /** Plain text with `{{placeholder}}` markers. The HTML part is derived from it at render. */
+    body: text('body').notNull(),
+    updatedBy: integer('updated_by').references(() => employees.id),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('email_template_overrides_league_key_uq').on(t.leagueId, t.templateKey)],
+);
 
 // -------------------------------------------------------------------- audit --
 

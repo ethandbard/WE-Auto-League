@@ -27,6 +27,7 @@ import { apiKeysRouter } from './routes/apiKeys.js';
 import { externalRouter } from './routes/external.js';
 import { leaguesRouter } from './routes/leagues.js';
 import { emailRecipientsRouter } from './routes/emailRecipients.js';
+import { emailSettingsRouter, emailTemplatesRouter } from './routes/emailSettings.js';
 import { apiLimiter } from './rateLimit.js';
 
 const app = express();
@@ -70,6 +71,8 @@ app.use('/api/admin', adminRouter);
 app.use('/api/api-keys', apiKeysRouter);
 app.use('/api/leagues', leaguesRouter);
 app.use('/api/email-recipients', emailRecipientsRouter);
+app.use('/api/email-settings', emailSettingsRouter);
+app.use('/api/email-templates', emailTemplatesRouter);
 // The scoped-key REST surface — Phase 7's integration seam. Deliberately
 // outside attachActor's session model; external.ts authenticates its own way.
 app.use('/api/v1', externalRouter);

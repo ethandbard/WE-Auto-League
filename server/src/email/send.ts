@@ -1,11 +1,13 @@
 // Every send carries an idempotency key of (template, period, recipient) that
 // email_log enforces via a unique index — see CLAUDE.md. Call sendOnce, never
 // the transport directly, so a re-fired scheduler job is a no-op rather than
-// a duplicate standings email.
+// a duplicate standings email, and so the league's pause switch and
+// per-template toggles are enforced in one place.
 import { eq } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { emailLog } from '../db/schema.js';
+import { emailLog, leagues } from '../db/schema.js';
 import { env } from '../env.js';
+import { suppressionFor, type EmailGateSettings, type SuppressionReason } from './overrides.js';
 
 export interface EmailMessage {
   to: string;
@@ -114,6 +116,22 @@ function selectTransport(): EmailTransport {
 
 const transport: EmailTransport = selectTransport();
 
+/**
+ * The league's mail gate, read fresh per send so flipping the pause switch in
+ * Admin takes effect on the next scheduler tick without a restart. An unknown
+ * league suppresses rather than sends — the safe direction for a switch whose
+ * whole job is to stop mail.
+ */
+async function gateSettingsFor(leagueId: number): Promise<EmailGateSettings> {
+  const [league] = await db
+    .select({ emailPaused: leagues.emailPaused, emailTemplatesEnabled: leagues.emailTemplatesEnabled })
+    .from(leagues)
+    .where(eq(leagues.id, leagueId))
+    .limit(1);
+  if (!league) return { emailPaused: true, templatesEnabled: {} };
+  return { emailPaused: league.emailPaused, templatesEnabled: league.emailTemplatesEnabled ?? {} };
+}
+
 export interface SendOnceParams {
   leagueId: number;
   template: string;
@@ -122,16 +140,36 @@ export interface SendOnceParams {
   subject: string;
   html: string;
   text: string;
+  /**
+   * Skips the pause switch and the template toggles. Only for a send a person
+   * just asked for by hand — Admin's send-test-to-me. Never set it from the
+   * scheduler.
+   */
+  bypassPause?: boolean;
 }
 
-/** Returns 'sent' | 'already-sent' | 'failed'. Never throws for a duplicate — that's the idempotency guarantee. */
-export async function sendOnce(params: SendOnceParams): Promise<'sent' | 'already-sent' | 'failed'> {
+export type SendResult = 'sent' | 'already-sent' | 'failed' | 'suppressed';
+
+/**
+ * Returns 'sent' | 'already-sent' | 'failed' | 'suppressed'. Never throws for
+ * a duplicate — that's the idempotency guarantee. A suppressed send still
+ * writes its email_log row, so the log shows what would have gone out; the row
+ * stays unsent, so the same key sends for real once mail resumes.
+ */
+export async function sendOnce(params: SendOnceParams): Promise<SendResult> {
   const idempotencyKey = `${params.template}:${params.periodId ?? 'none'}:${params.to}`;
   const [existing] = await db.select().from(emailLog).where(eq(emailLog.idempotencyKey, idempotencyKey)).limit(1);
   if (existing && existing.status === 'sent') return 'already-sent';
 
+  const suppression: SuppressionReason | null = suppressionFor(
+    params.template,
+    await gateSettingsFor(params.leagueId),
+    params.bypassPause ?? false,
+  );
+  const status = suppression ? ('suppressed' as const) : ('queued' as const);
+
   const [logRow] = existing
-    ? await db.update(emailLog).set({ status: 'queued' }).where(eq(emailLog.id, existing.id)).returning()
+    ? await db.update(emailLog).set({ status }).where(eq(emailLog.id, existing.id)).returning()
     : await db
         .insert(emailLog)
         .values({
@@ -140,9 +178,14 @@ export async function sendOnce(params: SendOnceParams): Promise<'sent' | 'alread
           periodId: params.periodId ?? null,
           recipientEmail: params.to,
           idempotencyKey,
-          status: 'queued',
+          status,
         })
         .returning();
+
+  if (suppression) {
+    console.log(`[email] suppressed (${suppression}) template=${params.template} to=${params.to}`);
+    return 'suppressed';
+  }
 
   try {
     const { providerMessageId } = await transport.send({ to: params.to, subject: params.subject, html: params.html, text: params.text });
@@ -162,7 +205,9 @@ export async function sendOnce(params: SendOnceParams): Promise<'sent' | 'alread
  * Bypasses the idempotency log: unlike a standings send, each magic-link
  * request must go out fresh, so `sendOnce`'s per-(template,period,recipient)
  * dedup — designed for the scheduler's period-scoped mail — is the wrong tool
- * here and would silently swallow every request after the first.
+ * here and would silently swallow every request after the first. Going around
+ * sendOnce also exempts it from the league's pause switch, which is correct:
+ * pausing league mail must not lock everybody out of signing in.
  */
 export async function sendMagicLinkEmail(_leagueId: number, to: string, url: string): Promise<void> {
   await transport.send({

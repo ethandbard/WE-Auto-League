@@ -21,7 +21,7 @@ Two invariants shape every correction:
 | Last-filed numbers for a store | **Enter** (loads the latest submission), or `GET /api/submissions/current` |
 | Goals, weights, roster, penalties | **Manage** tabs |
 | Late submissions, training flags, eligibility warnings | **Admin → Overview** (compliance), or `GET /api/admin/compliance` |
-| Every email the system sent, with status | **Admin → Email**, or `GET /api/admin/email-log` |
+| Every email the system sent, with status | **Admin → Email**, or `GET /api/admin/email-log`. Status `suppressed` = the pause switch or a template toggle stopped it; the row records what would have gone out. |
 | Dispute-grade export | **Standings → Export** (`.csv` / `.xlsx`), rows carry engine version and publish state |
 | The audit trail | SQL only — `audit_log` is not exposed in the UI or API yet |
 | Any table, dev machine | `npm run db:studio` in `server/` (Drizzle Studio, browser UI) |
@@ -74,6 +74,8 @@ scoring invariants.
 | Roster fact wrong (name, store, role, email, hire date) | **Manage → Roster** edit, or a roster import (matches on email, previews a per-field diff). |
 | Manual penalty entered in error | **Manage → Penalties → delete**. Only `manual` penalties can be deleted here — for the other kinds see [Correct with SQL](#correct-with-sql). |
 | A score needs a discretionary deduction | Add a manual penalty with a reason. Values are positive-only; the ledger has no credits. To *restore* points, zero an existing penalty with SQL instead. |
+| Automated mail is going out when it should not | **Admin → Email → Pause all sending**, or turn off the one template. Suppressed sends are logged, not dropped, and the same recipient still gets a real copy once mail resumes. |
+| Automated mail says the wrong thing | **Admin → Email → Edit draft** on that template. Preview and send-test-to-me before saving; **Revert to default** puts the built-in text back. |
 | Published board is wrong | Fix the underlying input (rows in this table, or SQL if the period is no longer open), then `POST /api/periods/:id/recompute` and `POST /api/periods/:id/publish`. This creates revision N+1 and links each old row to its replacement. |
 
 Two things the app cannot do today:
