@@ -46,17 +46,12 @@ importRouter.post(
 
     const result = await recordSubmission(
       { dealershipId: body.dealershipId, periodId: body.periodId, advisorValues: resolved.advisorValues, managerValues: resolved.managerValues },
-      { submittedBy: req.actor!.employeeId, provenance: 'csv' },
+      {
+        submittedBy: req.actor!.employeeId,
+        provenance: 'csv',
+        audit: { actor: req.actor ?? null, leagueId: null, action: 'submission.import_csv', after: { rowCount: parsed.rows.length } },
+      },
     );
-    await writeAudit({
-      actor: req.actor ?? null,
-      leagueId: null,
-      action: 'submission.import_csv',
-      entityType: 'submission',
-      entityId: result.submission!.id,
-      after: { rowCount: parsed.rows.length },
-      provenance: 'csv',
-    });
     res.status(201).json({ ...result, unmatchedCategories: resolved.unmatchedCategories });
   }),
 );
@@ -97,17 +92,12 @@ importRouter.post(
 
     const result = await recordSubmission(
       { dealershipId: body.dealershipId, periodId: body.periodId, advisorValues: resolved.advisorValues, managerValues: resolved.managerValues },
-      { submittedBy: req.actor!.employeeId, provenance: 'csv' },
+      {
+        submittedBy: req.actor!.employeeId,
+        provenance: 'csv',
+        audit: { actor: req.actor ?? null, leagueId: null, action: 'submission.import_xlsx', after: { rowCount: parsed.rows.length } },
+      },
     );
-    await writeAudit({
-      actor: req.actor ?? null,
-      leagueId: null,
-      action: 'submission.import_xlsx',
-      entityType: 'submission',
-      entityId: result.submission!.id,
-      after: { rowCount: parsed.rows.length },
-      provenance: 'csv',
-    });
     res.status(201).json({ ...result, unmatchedCategories: resolved.unmatchedCategories });
   }),
 );
