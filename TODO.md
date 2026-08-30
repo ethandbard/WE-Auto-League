@@ -72,6 +72,16 @@ Either load real addresses (item 1b) or set `ENABLE_SCHEDULER=false` in
 second option also stops late-submission penalties from being *applied*, not
 just mailed — it is a scoring change, not only a mail change.
 
+**Mitigated 2026-08-30.** Production `config.env` now pins
+`EMAIL_PROVIDER=console`: the scheduler still runs and still applies
+penalties, but no mail leaves the box (console-transport "sends" are logged
+in `email_log` with a null `providerMessageId`). This is deliberately a
+third option — `ENABLE_SCHEDULER=false` was rejected because it changes
+scoring. Restore `EMAIL_PROVIDER=resend` only after the in-app email pause
+(hardening plan phase 1) is deployed and the league is paused there, so
+mail control moves to the Admin screen. Real sending to the roster stays
+gated on item 1b regardless.
+
 ## 1b. Collect the roster's email addresses
 
 Now urgent — see item 1a. The seeded roster has 45 advisors and **no real
