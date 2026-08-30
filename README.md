@@ -98,6 +98,22 @@ npm test                            # the real engine, node:test
 and the WC Conv precision trap (see `CLAUDE.md`) against `fixtures/june-2026.json`
 and the full transcription in `fixtures/june-2026-full.json`.
 
+## Integration tests
+
+`npm test` is pure — no database, so it stays fast. The DB-backed suite in
+`server/test/integration/` runs separately:
+
+```bash
+npm run test:integration   # needs a local PostgreSQL
+npm run test:all           # both suites
+```
+
+It points `DATABASE_URL` at `we_auto_league_itest`, creates that database if
+missing, applies the migrations, and truncates between files. It refuses to
+start unless the database name ends in `itest` or `_test`, so it can never
+reach `we_auto_league`. `EMAIL_PROVIDER=console` means the scheduler's mail is
+logged, never sent.
+
 ## Production
 
 Docker Compose on the VPS, mirroring `../pokemon-crm`: the app and Postgres 16,
@@ -134,7 +150,9 @@ docker compose exec app node server/dist/scripts/seed.js
 | `npm run dev` | API + web dev servers together |
 | `npm run build` | Typecheck and build both workspaces |
 | `npm run typecheck` | Typecheck only |
-| `npm test` | Golden-master scoring engine tests |
+| `npm test` | Golden-master scoring engine tests — pure, no database |
+| `npm run test:integration` | DB-backed suite against `we_auto_league_itest` |
+| `npm run test:all` | Both suites |
 | `npm run db:create` / `db:migrate` / `db:generate` / `db:studio` | Database lifecycle |
 | `npm run seed` | Load the June 2026 sheet and open the current period (idempotent — no-ops if the league already exists) |
 | `npm run scheduler` (in `server/`) | Run the scheduler as its own process instead of in-process |
