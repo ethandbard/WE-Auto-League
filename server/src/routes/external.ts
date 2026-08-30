@@ -34,7 +34,7 @@ declare global {
   }
 }
 
-async function requireApiKey(scope: 'submit' | 'read') {
+function requireApiKey(scope: 'submit' | 'read') {
   return async (req: Request, _res: Response, next: NextFunction) => {
     const header = req.header('Authorization') ?? '';
     const raw = header.startsWith('Bearer ') ? header.slice('Bearer '.length) : null;
@@ -43,7 +43,7 @@ async function requireApiKey(scope: 'submit' | 'read') {
     if (!row) return next(unauthorized('Invalid or revoked API key'));
     const scopes = row.scopes as string[];
     if (!scopes.includes(scope)) return next(forbidden(`This key does not have "${scope}" scope`));
-    void db.update(apiKeys).set({ lastUsedAt: new Date() }).where(eq(apiKeys.id, row.id));
+    await db.update(apiKeys).set({ lastUsedAt: new Date() }).where(eq(apiKeys.id, row.id));
     req.apiKeyCtx = { id: row.id, leagueId: row.leagueId, dealershipId: row.dealershipId, scopes, createdBy: row.createdBy };
     next();
   };
@@ -58,7 +58,7 @@ const submitSchema = z.object({
 
 externalRouter.post(
   '/submit',
-  asyncHandler(async (req, res, next) => (await requireApiKey('submit'))(req, res, next)),
+  asyncHandler(requireApiKey('submit')),
   asyncHandler(async (req, res) => {
     const body = submitSchema.parse(req.body);
     const ctx = req.apiKeyCtx!;
@@ -73,14 +73,21 @@ externalRouter.post(
   }),
 );
 
+const standingsQuerySchema = z.object({
+  periodId: z.coerce.number().int().positive(),
+  scope: z.enum(['advisor', 'manager', 'team']).optional(),
+});
+
 externalRouter.get(
   '/standings',
-  asyncHandler(async (req, res, next) => (await requireApiKey('read'))(req, res, next)),
+  asyncHandler(requireApiKey('read')),
   asyncHandler(async (req, res) => {
-    const periodId = Number(req.query.periodId);
-    if (!Number.isFinite(periodId)) throw badRequest('periodId is required');
-    const scope = (req.query.scope as 'advisor' | 'manager' | 'team' | undefined) ?? undefined;
-    const rows = await currentScoresFor(periodId, scope);
-    res.json({ scores: rows });
+    const query = standingsQuerySchema.parse(req.query);
+    const ctx = req.apiKeyCtx!;
+    const rows = await currentScoresFor(query.periodId, query.scope);
+    // A store-scoped key reads its own store only. Every score row — advisor,
+    // team, and manager — carries the dealership it belongs to.
+    const scoped = ctx.dealershipId == null ? rows : rows.filter((row) => row.dealershipId === ctx.dealershipId);
+    res.json({ scores: scoped });
   }),
 );
