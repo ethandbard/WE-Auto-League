@@ -7,6 +7,7 @@ import { eq, and, gt, isNull } from 'drizzle-orm';
 import { db } from './db/client.js';
 import { employees, sessions, magicLinks } from './db/schema.js';
 import { env } from './env.js';
+import { accessVerificationConfigured, verifiedAccessEmail } from './accessJwt.js';
 
 export interface Actor {
   employeeId: number;
@@ -93,13 +94,41 @@ async function resolveViaSession(req: Request): Promise<Actor | null> {
   return actorForEmployeeId(row.employeeId);
 }
 
+let warnedAboutUnverifiedAccess = false;
+
 /**
- * Cloudflare Access terminates in front of the app and injects this header
- * after its own auth — nothing here re-verifies it, which is the point: swap
- * the deployment's front door, not this function's caller.
+ * Cloudflare Access terminates in front of the app and injects both a plain
+ * identity header and a signed `Cf-Access-Jwt-Assertion`. Only the assertion
+ * is trusted: the header is forgeable by anything that reaches the origin
+ * without going through the tunnel.
+ *
+ * Outside production, an unconfigured deployment falls back to the plain
+ * header so Access mode can be exercised locally — env.ts refuses to boot in
+ * production without CF_ACCESS_TEAM_DOMAIN and CF_ACCESS_AUD.
  */
 async function resolveViaCloudflareAccess(req: Request): Promise<Actor | null> {
-  const email = req.header('Cf-Access-Authenticated-User-Email');
+  let email: string | null = null;
+
+  if (accessVerificationConfigured()) {
+    const assertion = req.header('Cf-Access-Jwt-Assertion');
+    if (!assertion) return null;
+    email = await verifiedAccessEmail(assertion);
+  } else {
+    if (env.isProduction) return null;
+    if (!warnedAboutUnverifiedAccess) {
+      warnedAboutUnverifiedAccess = true;
+      console.warn(
+        '\n**************************************************************************\n' +
+          '*  INSECURE: trusting Cf-Access-Authenticated-User-Email without a JWT.   *\n' +
+          '*  CF_ACCESS_TEAM_DOMAIN / CF_ACCESS_AUD are unset, so anyone who can     *\n' +
+          '*  reach this origin can set that header and become any user.            *\n' +
+          '*  Local testing only. Production refuses to boot in this state.         *\n' +
+          '**************************************************************************\n',
+      );
+    }
+    email = req.header('Cf-Access-Authenticated-User-Email') ?? null;
+  }
+
   if (!email) return null;
   const [row] = await db.select().from(employees).where(eq(employees.email, email)).limit(1);
   if (!row || row.archivedAt) return null;

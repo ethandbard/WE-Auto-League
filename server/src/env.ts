@@ -34,16 +34,63 @@ function connectionStringFromParts(): string {
   return `postgres://${auth}@${host}:${port}/${database}`;
 }
 
+/** The shipped placeholder. Usable in dev; a boot failure in production. */
+export const DEFAULT_AUTH_SECRET = 'dev-only-change-me';
+
+/** Only the fields the production guard inspects, so it can be called with a literal in tests. */
+export interface BootConfig {
+  nodeEnv: string;
+  authProvider: 'session' | 'cloudflare-access';
+  authSecret: string;
+  cfAccessTeamDomain: string;
+  cfAccessAud: string;
+}
+
+/**
+ * Settings that are fine locally but unsafe in production: a guessable session
+ * secret, or Access mode with nothing to verify the Access JWT against. Pure,
+ * so `server/test/security.test.ts` can pin it.
+ */
+export function productionConfigErrors(cfg: BootConfig): string[] {
+  if (cfg.nodeEnv !== 'production') return [];
+  const errors: string[] = [];
+  if (!cfg.authSecret || cfg.authSecret === DEFAULT_AUTH_SECRET) {
+    errors.push('AUTH_SECRET is unset or still the shipped default. Set it to a long random string.');
+  }
+  if (cfg.authProvider === 'cloudflare-access') {
+    if (!cfg.cfAccessTeamDomain) {
+      errors.push('CF_ACCESS_TEAM_DOMAIN is required when AUTH_PROVIDER=cloudflare-access (e.g. https://ethandbard.cloudflareaccess.com).');
+    }
+    if (!cfg.cfAccessAud) {
+      errors.push('CF_ACCESS_AUD is required when AUTH_PROVIDER=cloudflare-access (the Access app\'s Application Audience tag).');
+    }
+  }
+  return errors;
+}
+
+export function assertProductionConfig(cfg: BootConfig): void {
+  const errors = productionConfigErrors(cfg);
+  if (errors.length > 0) {
+    throw new Error(`Refusing to start in production:\n  - ${errors.join('\n  - ')}`);
+  }
+}
+
 export const env = {
   databaseUrl: process.env.DATABASE_URL || connectionStringFromParts(),
   /** Azure/managed Postgres requires TLS; local dev servers usually do not. */
   dbSsl: (process.env.PGSSL ?? 'false').toLowerCase() === 'true',
+  nodeEnv: process.env.NODE_ENV ?? 'development',
+  isProduction: process.env.NODE_ENV === 'production',
   port: int('API_PORT', int('PORT', 4000)),
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
   appBaseUrl: process.env.APP_BASE_URL || 'http://localhost:5173',
-  authSecret: process.env.AUTH_SECRET || 'dev-only-change-me',
+  authSecret: process.env.AUTH_SECRET || DEFAULT_AUTH_SECRET,
   authSessionDays: int('AUTH_SESSION_DAYS', 30),
   authProvider: (process.env.AUTH_PROVIDER ?? 'session') === 'cloudflare-access' ? 'cloudflare-access' : 'session',
+  /** Access team domain, e.g. https://ethandbard.cloudflareaccess.com — also the Access JWT's `iss`. */
+  cfAccessTeamDomain: process.env.CF_ACCESS_TEAM_DOMAIN ?? '',
+  /** The Access app's Application Audience (AUD) tag — the JWT's `aud`. */
+  cfAccessAud: process.env.CF_ACCESS_AUD ?? '',
   /** Explicit transport choice. Empty means auto-detect from whichever credential is set — see email/send.ts. */
   emailProvider: (process.env.EMAIL_PROVIDER ?? '').toLowerCase(),
   /** Shared by every transport. CF_EMAIL_FROM is the pre-Resend name, still honoured. */
@@ -52,3 +99,5 @@ export const env = {
   cfEmailAccountId: process.env.CF_EMAIL_ACCOUNT_ID ?? '',
   cfEmailApiToken: process.env.CF_EMAIL_API_TOKEN ?? '',
 } as const;
+
+assertProductionConfig(env);
