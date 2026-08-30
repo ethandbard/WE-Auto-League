@@ -7,6 +7,7 @@ import { TeamsTab } from './admin/TeamsTab';
 import { RosterTab } from './manage/RosterTab';
 import { EmailTab } from './admin/EmailTab';
 import { ApiKeysTab } from './admin/ApiKeysTab';
+import { AuditTab } from './admin/AuditTab';
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
@@ -15,6 +16,7 @@ const TABS = [
   { id: 'employees', label: 'Employees' },
   { id: 'email', label: 'Email & communications' },
   { id: 'keys', label: 'API keys' },
+  { id: 'audit', label: 'Audit log' },
 ] as const;
 
 type TabId = (typeof TABS)[number]['id'];
@@ -29,7 +31,7 @@ export function Admin() {
 
   return (
     <div>
-      <PageHeader eyebrow="Admin" title="League control centre" subtitle="Settings, teams, employees, email, and keys." />
+      <PageHeader eyebrow="Admin" title="League control centre" subtitle="Settings, teams, employees, email, keys, and the audit log." />
       <div className="mb-6 flex flex-wrap gap-1 border-b border-hairline">
         {TABS.map((t) => (
           <button
@@ -48,6 +50,7 @@ export function Admin() {
       {tab === 'employees' && <RosterTab />}
       {tab === 'email' && <EmailTab />}
       {tab === 'keys' && <ApiKeysTab />}
+      {tab === 'audit' && <AuditTab />}
     </div>
   );
 }

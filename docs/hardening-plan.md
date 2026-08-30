@@ -48,7 +48,10 @@ in CLAUDE.md § Production.
   store when the key is scoped.
 - Run the container as a non-root user.
 
-## Phase 3 — data integrity and correction routes (branch `agent/data-integrity`, after phase 1)
+## Phase 3 — data integrity and correction routes (branch `agent/data-integrity`, built 2026-08-30)
+
+Built as described below. Migration `0003` carries the penalty column and its
+backfill; the deploy note is in CLAUDE.md § Production.
 
 - Make `recordSubmission` transactional: no orphan submission row when
   validation fails mid-write (the silent late-penalty bypass).
@@ -59,6 +62,10 @@ in CLAUDE.md § Production.
 - Correction routes, closing the SQL-only gaps in data-corrections.md:
   period unlock, penalty waive (zero, with a reason, any kind), submission
   delete, and a read API plus Admin tab for `audit_log`.
+
+What phase 3 did not close, and is still on data-corrections.md's list: no
+penalty credits, no submission edit, no re-mail of a corrected board, and no
+buttons for unlock / waive / submission delete — those three are API calls.
 
 ## Phase 4 — tests and CI (branch `agent/integration-tests`)
 

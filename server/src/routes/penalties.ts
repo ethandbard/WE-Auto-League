@@ -3,9 +3,10 @@ import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { employees, penalties, periods } from '../db/schema.js';
-import { asyncHandler, badRequest } from '../http.js';
+import { asyncHandler, badRequest, notFound } from '../http.js';
 import { requireAuth, requireRole } from '../middleware.js';
 import { writeAudit } from '../audit.js';
+import { idParam } from '../validation.js';
 import { sendOnce } from '../email/send.js';
 import { trainingFlagEmail } from '../email/templates.js';
 import { renderLeagueEmail } from '../email/render.js';
@@ -57,13 +58,48 @@ penaltiesRouter.post(
   }),
 );
 
+const waiveSchema = z.object({ reason: z.string().min(1) });
+
+/**
+ * Waives any penalty by zeroing its value. The `reason` column is left alone —
+ * it is the row's own record of why the penalty was issued — so the why of the
+ * waiver goes in the audit row instead.
+ *
+ * Zeroing rather than deleting keeps the ledger honest: the charge is still
+ * visible, at nil. For a `late_submission` row it is also the safe move, since
+ * deleting one lets the scheduler re-issue that window.
+ */
+penaltiesRouter.post(
+  '/:id/waive',
+  requireRole('commissioner'),
+  asyncHandler(async (req, res) => {
+    const { id } = idParam.parse(req.params);
+    const body = waiveSchema.parse(req.body);
+    const [before] = await db.select().from(penalties).where(eq(penalties.id, id)).limit(1);
+    if (!before) throw notFound('Penalty not found');
+    if (Number(before.value) === 0) throw badRequest('That penalty is already waived.');
+
+    const [after] = await db.update(penalties).set({ value: '0' }).where(eq(penalties.id, id)).returning();
+    await writeAudit({
+      actor: req.actor ?? null,
+      leagueId: null,
+      action: 'penalty.waive',
+      entityType: 'penalty',
+      entityId: id,
+      before,
+      after: { ...after, waiveReason: body.reason },
+    });
+    res.json({ penalty: after });
+  }),
+);
+
 penaltiesRouter.delete(
   '/:id',
   requireRole('commissioner'),
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     const [before] = await db.select().from(penalties).where(eq(penalties.id, id)).limit(1);
-    if (before?.kind !== 'manual') throw badRequest('Only manual penalties can be removed here.');
+    if (before?.kind !== 'manual') throw badRequest('Only manual penalties can be removed here. Waive the others instead.');
     await db.delete(penalties).where(eq(penalties.id, id));
     await writeAudit({ actor: req.actor ?? null, leagueId: null, action: 'penalty.delete', entityType: 'penalty', entityId: id, before });
     res.json({ ok: true });

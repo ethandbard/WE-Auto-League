@@ -10,6 +10,7 @@ import { writeAudit } from '../audit.js';
 import { computePeriodScores, publishPeriodScores } from '../scoring/compute.js';
 import { updateFloaterCounters } from '../scoring/eligibility.js';
 import { mailStandingsForPeriod } from '../email/standingsMail.js';
+import { idParam } from '../validation.js';
 
 export const periodsRouter = Router();
 
@@ -120,6 +121,42 @@ periodsRouter.post(
     const [updated] = await db.update(periods).set({ status: 'published', publishedAt: new Date() }).where(eq(periods.id, id)).returning();
     await writeAudit({ actor: req.actor ?? null, leagueId: period.leagueId, action: 'period.publish', entityType: 'period', entityId: id, after: updated });
     res.json({ period: updated, publishedCount });
+  }),
+);
+
+/**
+ * Reopens a locked or published period so a correction can be filed.
+ *
+ * Published `scores` rows stay published, by design — a board that has been
+ * mailed is immutable. Recomputing and publishing again after the re-lock
+ * writes the next revision and links each old row to its replacement.
+ * `isFinal` flags on submissions stay set; the next lock re-marks the latest
+ * filing per store, so a stale flag is harmless.
+ */
+periodsRouter.post(
+  '/:id/unlock',
+  requireRole('commissioner'),
+  asyncHandler(async (req, res) => {
+    const { id } = idParam.parse(req.params);
+    const [period] = await db.select().from(periods).where(eq(periods.id, id)).limit(1);
+    if (!period) throw notFound('Period not found');
+    if (period.status === 'open') throw badRequest('Period is already open.');
+
+    const [updated] = await db
+      .update(periods)
+      .set({ status: 'open', lockedAt: null })
+      .where(eq(periods.id, id))
+      .returning();
+    await writeAudit({
+      actor: req.actor ?? null,
+      leagueId: period.leagueId,
+      action: 'period.unlock',
+      entityType: 'period',
+      entityId: id,
+      before: period,
+      after: updated,
+    });
+    res.json({ period: updated });
   }),
 );
 
