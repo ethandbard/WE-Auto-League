@@ -7,6 +7,7 @@ import { asyncHandler, badRequest } from '../http.js';
 import { issueMagicLink, consumeMagicLink, revokeSession, parseCookies, SESSION_COOKIE, ACCESS_LOGOUT_PATH } from '../auth.js';
 import { env } from '../env.js';
 import { sendMagicLinkEmail } from '../email/send.js';
+import { authRequestLinkLimiter, authVerifyLimiter } from '../rateLimit.js';
 
 export const authRouter = Router();
 
@@ -14,6 +15,7 @@ const requestLinkSchema = z.object({ email: z.string().email() });
 
 authRouter.post(
   '/request-link',
+  authRequestLinkLimiter,
   asyncHandler(async (req, res) => {
     if (env.authProvider === 'cloudflare-access') {
       throw badRequest('This deployment uses Cloudflare Access. Sign in at the PIN page, not with a magic link.');
@@ -40,6 +42,7 @@ const verifySchema = z.object({ token: z.string().min(10) });
 
 authRouter.post(
   '/verify',
+  authVerifyLimiter,
   asyncHandler(async (req, res) => {
     if (env.authProvider === 'cloudflare-access') {
       throw badRequest('This deployment uses Cloudflare Access. Sign in at the PIN page, not with a magic link.');
