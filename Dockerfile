@@ -21,12 +21,18 @@ COPY server/package.json server/package.json
 COPY client/package.json client/package.json
 RUN npm ci --omit=dev
 
-COPY --from=build /app/server/dist server/dist
-COPY --from=build /app/server/drizzle server/drizzle
-COPY --from=build /app/client/dist client/dist
+COPY --chown=node:node --from=build /app/server/dist server/dist
+COPY --chown=node:node --from=build /app/server/drizzle server/drizzle
+COPY --chown=node:node --from=build /app/client/dist client/dist
 # Seed reads fixtures/june-2026-full.json from the repo root. The runtime image
 # has no tsx, so first-deploy seed is `node server/dist/scripts/seed.js`.
-COPY fixtures fixtures
+COPY --chown=node:node fixtures fixtures
+
+# The base image ships an unprivileged `node` user. node_modules stays
+# root-owned and world-readable, which is all the app needs — it reads its
+# code, writes nothing to disk (uploads are parsed in memory), and listens on
+# 4000, above the privileged range.
+USER node
 
 EXPOSE 4000
 CMD ["node", "server/dist/index.js"]

@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import cron from 'node-cron';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -26,10 +27,22 @@ import { apiKeysRouter } from './routes/apiKeys.js';
 import { externalRouter } from './routes/external.js';
 import { leaguesRouter } from './routes/leagues.js';
 import { emailRecipientsRouter } from './routes/emailRecipients.js';
+import { apiLimiter } from './rateLimit.js';
 
 const app = express();
 
+// Off on purpose. The rate limiter keys on CF-Connecting-IP with req.ip as the
+// fallback (src/rateLimit.ts); trusting X-Forwarded-For here would let a
+// request that reaches the origin outside the tunnel pick its own bucket.
+app.set('trust proxy', false);
+
+// Helmet's defaults suit this app as shipped: the built client loads its own
+// bundle (script-src 'self') and Google Fonts, which the default
+// style-src/font-src already allow. Adding an external script or image host to
+// the client means widening the CSP here.
+app.use(helmet());
 app.use(cors({ origin: env.corsOrigin, credentials: true }));
+app.use('/api', apiLimiter);
 app.use(express.json({ limit: '1mb' }));
 app.use(attachActor());
 
