@@ -21,6 +21,8 @@
     "db:studio": "npm run db:studio --workspace server",
     "seed": "npm run seed --workspace server",
     "test": "npm run test --workspace server",
+    "test:integration": "npm run test:integration --workspace server",
+    "test:all": "npm run test && npm run test:integration",
     "typecheck": "npm run typecheck --workspace server && npm run typecheck --workspace client"
   },
   "engines": {
