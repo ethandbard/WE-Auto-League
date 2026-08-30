@@ -151,6 +151,16 @@ default) for the prototype, or a trusted `Cf-Access-Authenticated-User-Email`
 header (`cloudflare-access`) for an enterprise deployment — no route code
 changes either way.
 
+**`sendOnce` is the only gate on league mail.** The league's `emailPaused`
+switch and its per-template toggles are enforced inside
+`server/src/email/send.ts`, not at the call sites, so a new mailing route
+cannot forget them. A gated send writes its `email_log` row with status
+`suppressed` and returns `'suppressed'` — the row stays unsent, so the same
+idempotency key still delivers once mail resumes. `sendMagicLinkEmail` goes
+around `sendOnce` on purpose and is therefore exempt: pausing league mail must
+not lock everybody out of signing in. `bypassPause` exists for one caller,
+Admin's send-test-to-me, and must never be set from the scheduler.
+
 **All writes land in `audit_log`**, whatever path they arrive by — web form,
 CSV import, REST, or MCP. Call `writeAudit()` from `server/src/audit.ts`
 inside the same handler that performs the write, with the right `provenance`.
@@ -272,7 +282,8 @@ WE-Auto-League/
 │   ├── drizzle.config.ts        # drizzle-kit config (standalone — see Gotchas)
 │   ├── test/
 │   │   ├── scoring.test.ts      # golden-master test, `npm test`
-│   │   └── roster.test.ts       # floater-widened roster does not double-count
+│   │   ├── roster.test.ts       # floater-widened roster does not double-count
+│   │   └── emailControls.test.ts # pause/toggle suppression + template placeholder substitution
 │   └── src/
 │       ├── index.ts             # Express app, route mounting, in-process scheduler, shutdown
 │       ├── env.ts                # dotenv loading + typed env access
@@ -305,8 +316,11 @@ WE-Auto-League/
 │       │   ├── lock.ts           # Postgres advisory lock wrapper
 │       │   └── jobs.ts           # missed-window penalties, reminders, standings mail
 │       ├── email/
-│       │   ├── send.ts           # EmailTransport (Cloudflare REST / console), sendOnce idempotency
+│       │   ├── send.ts           # EmailTransport (Cloudflare REST / console), sendOnce idempotency + the pause/toggle gate
+│       │   ├── overrides.ts      # pure: suppressionFor, renderDraft, placeholder + default-draft tables
+│       │   ├── render.ts         # renderLeagueEmail — a league's saved draft, else the code default
 │       │   ├── templates.ts      # standings (full ranking table), reminder, late-penalty, training-flag
+│       │   ├── recipients.ts     # ccExtraRecipients — CCs email_recipients onto non-standings mail
 │       │   └── standingsMail.ts  # mailStandingsForPeriod — scheduler + POST /mail-standings
 │       ├── mcp/
 │       │   └── server.ts         # MCP tools: submit_metrics, get_standings, post_announcement
@@ -327,6 +341,7 @@ WE-Auto-League/
 │       │   ├── apiKeys.ts        # scoped key issuance/revocation
 │       │   ├── leagues.ts        # GET/PUT /api/leagues/current
 │       │   ├── emailRecipients.ts # extra standings/reminder recipients
+│       │   ├── emailSettings.ts  # pause switch, template toggles/drafts, preview, test-send
 │       │   └── external.ts       # /api/v1 — the scoped-key REST surface
 │       └── scripts/
 │           ├── seed.ts           # loads fixtures/june-2026-full.json as a published period
@@ -394,17 +409,17 @@ Anything unmatched redirects to `/`.
 
 ## Data model
 
-22 tables in `server/src/db/schema.ts`. Fifteen were in the original plan;
+23 tables in `server/src/db/schema.ts`. Fifteen were in the original plan;
 `delegates`, `announcement_reads`, `api_keys`, `magic_links`, and `sessions`
 were added during Phase 1 because the plan's prose already implied them
 (roles + delegates, read receipts, scoped keys, magic-link sessions) without
 tabulating them. `email_recipients` was added so extra inboxes can be CCed on
-league mail.
+league mail, and `email_template_overrides` so a commissioner can redraft one.
 
 | Table | Holds | Notes |
 |---|---|---|
 | `organizations` | Tenant boundary | Every league belongs to one |
-| `leagues` | A competition + its settings | Timezone, submission days/cutoff, penalty values, eligibility toggles, `attainmentCap` |
+| `leagues` | A competition + its settings | Timezone, submission days/cutoff, penalty values, eligibility toggles, `attainmentCap`, plus the email controls: `emailPaused`, `emailTemplatesEnabled` (jsonb, absent key = enabled), `reminderLeadHours`, `autoMailStandingsOnPublish` |
 | `periods` | Contest months | `status`: open → locked → published |
 | `dealerships` | Store, brand, alias | |
 | `employees` | Advisors, managers, commissioners | `role` enum; `dealershipId` null for commissioners and floaters; `consecutiveFloaterMonths` tracks unassigned advisors |
@@ -418,8 +433,9 @@ league mail.
 | `penalties` | Point adjustments | `late_submission` / `training_incomplete` / `manual`; check constraint: exactly one of `dealershipId`/`employeeId` |
 | `scores` | Computed results | Append-only, `revision` + `supersededById`; see § Rules |
 | `announcements` / `announcement_reads` | Message board | |
-| `email_log` | Every send | `idempotencyKey` unique — see § Rules |
+| `email_log` | Every send | `idempotencyKey` unique — see § Rules. `status` adds `suppressed` for a send the pause switch or a template toggle stopped |
 | `email_recipients` | Extra inboxes CCed on league mail | Soft-delete via `revokedAt`; `templates` jsonb |
+| `email_template_overrides` | A commissioner's drafted subject/body | One row per `(league, templateKey)`; `{{placeholder}}` markers. No row = the code default in `email/templates.ts` ships |
 | `audit_log` | Every write | `actorId` nullable (API/MCP writes attribute to the key's creator instead — see `external.ts`) |
 | `api_keys` | Scoped REST/MCP credentials | `keyHash` only, never the raw key after issuance |
 | `magic_links` / `sessions` | Auth | Hashed tokens, 15-min link expiry, `AUTH_SESSION_DAYS` session expiry |
@@ -446,7 +462,7 @@ need it call `requireAuth()` / `requireRole(...)` / `requireStoreWrite(...)`.
 | POST | `/api/periods/:id/lock` | Marks the latest submission per store final, computes scores |
 | POST | `/api/periods/:id/publish` | Publishes the current revision — immutable from here |
 | POST | `/api/periods/:id/recompute` | Recomputes without publishing (provisional/live leaderboard) |
-| POST | `/api/periods/:id/mail-standings` | Commissioner-only; 400 unless published. Returns `{recipientCount, sent, alreadySent, failed}` |
+| POST | `/api/periods/:id/mail-standings` | Commissioner-only; 400 unless published. Returns `{recipientCount, sent, alreadySent, failed, suppressed}` |
 | GET/POST | `/api/dealerships` | List / create; `POST /:id/archive`, `/:id/restore` |
 | GET/POST | `/api/employees` | Roster list / create; `PATCH /:id`, `/:id/archive`, `/:id/restore` |
 | PUT | `/api/employees/:id/participation` | Set eligible/hidden/terminated for a period; returns a `warning` if it drops the store below the manager-eligibility minimum |
@@ -471,6 +487,11 @@ need it call `requireAuth()` / `requireRole(...)` / `requireStoreWrite(...)`.
 | GET | `/api/admin/email-log` | Recent `email_log` rows, paginated |
 | GET/PUT | `/api/leagues/current` | League settings; PUT is commissioner-only |
 | GET/POST | `/api/email-recipients` | Extra recipients; `PATCH /:id`, `POST /:id/revoke` |
+| GET/PUT | `/api/email-settings` | Commissioner-only. Pause switch, per-template toggles, `reminderLeadHours`, `autoMailStandingsOnPublish`. PUT is a full replace |
+| GET | `/api/email-templates` | All four templates with label, placeholders, enabled flag, default draft, and the saved override |
+| GET/PUT/DELETE | `/api/email-templates/:key` | Read / save a drafted subject+body / revert to the code default. PUT 400s on a placeholder the template cannot supply |
+| POST | `/api/email-templates/:key/preview` | Renders with sample data. An unsaved `{subject, body}` previews as typed; no body previews what would send today |
+| POST | `/api/email-templates/:key/test-send` | Sends the sample render to the acting commissioner's own address, bypassing the pause switch |
 | GET/POST | `/api/api-keys` | List (no hash) / create (raw key returned once); `POST /:id/revoke` |
 | POST | `/api/v1/submit` | Scoped-key submit — `Authorization: Bearer <key>` |
 | GET | `/api/v1/standings` | Scoped-key read |
@@ -627,7 +648,9 @@ Magic-link sessions stay the local default. Do not switch production back
 to `session` until Cloudflare Email Sending is configured.
 
 The production image has no `tsx`. Migrate and seed with compiled JS, not
-the npm scripts. Migration `0001` is already applied. Do not re-run seed:
+the npm scripts. Migration `0001` is already applied; `0002` (the email
+controls) applies on the next deploy and pauses the existing league as its
+data step. Do not re-run seed:
 
 ```
 docker compose exec app node server/dist/db/migrate.js
@@ -660,8 +683,18 @@ not the apex: the zone is shared with the other projects, and an apex record
 sets policy for all of them.
 
 The seeded roster is still 53 placeholder `@weauto.local` addresses, so the
-scheduler's reminder and late-penalty mail now hard-bounces. See
+scheduler's reminder and late-penalty mail would hard-bounce. See
 [TODO.md](TODO.md) item 1a before the next submission window.
+
+**Sending is held in the app, not in the config.** `config.env` pinned
+`EMAIL_PROVIDER=console` as an emergency stop (hardening plan phase 0); the
+durable control is now the league's `emailPaused` switch, which migration
+`0002` sets on the existing league. The order to unwind it: deploy, run
+migrate, confirm **Admin → Email** reads "Automated email is paused", set
+`EMAIL_PROVIDER=resend` and restart. Nothing leaves the box while paused
+except sign-in links and Admin's send-test-to-me. Resume only once the roster
+carries real addresses (TODO item 1b) — per-template toggles let reminders
+stay off while standings go out.
 
 Moving `AUTH_PROVIDER` off `cloudflare-access` is no longer gated on email;
 it is gated on rate-limiting `POST /api/auth/request-link` — TODO item 1.

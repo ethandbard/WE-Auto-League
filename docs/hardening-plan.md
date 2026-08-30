@@ -14,9 +14,11 @@ runs and still applies late penalties; no mail leaves the box. Revert to
 `EMAIL_PROVIDER=resend` only after phase 1 deploys with sending paused in-app
 and the roster carries real addresses (TODO 1b).
 
-## Phase 1 — email scheduler controls (branch `agent/email-controls`)
+## Phase 1 — email scheduler controls (branch `agent/email-controls`, built 2026-08-30)
 
-An Admin → Email surface that controls automated mail without config edits:
+An Admin → Email surface that controls automated mail without config edits.
+Built as described below; migration `0002` carries it, and the deploy order is
+in CLAUDE.md § Production.
 
 - **Pause switch.** A league-level `emailPaused` flag, enforced in `sendOnce`
   so every template funnel respects it. Suppressed sends are logged with a

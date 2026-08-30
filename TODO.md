@@ -67,10 +67,13 @@ date (`reminder:<windowDate>`, `late-penalty:<windowDate>`), so every new
 window is a new key and a real send — 8 managers, twice a week, all hard
 bouncing on a two-day-old sending domain.
 
-Either load real addresses (item 1b) or set `ENABLE_SCHEDULER=false` in
-`/opt/we-auto-league/config.env` before the next submission window. The
-second option also stops late-submission penalties from being *applied*, not
-just mailed — it is a scoring change, not only a mail change.
+**Handled in the app as of the phase 1 email controls.** Migration `0002`
+brings the league up with `emailPaused` set, so the scheduler still applies
+late-submission penalties while every send is logged `suppressed` instead of
+delivered. `ENABLE_SCHEDULER=false` is no longer the lever to reach for — it
+would stop penalties being *applied*, a scoring change rather than a mail
+change. What remains is item 1b: load real addresses, then resume sending in
+**Admin → Email**, one template at a time if you like.
 
 ## 1b. Collect the roster's email addresses
 
