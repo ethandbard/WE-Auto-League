@@ -82,6 +82,28 @@ export interface EmailLogRow {
   createdAt: string;
 }
 
+/** One `audit_log` row, joined to its actor. `actorId` is null for API and MCP writes. */
+export interface AuditLogRow {
+  id: number;
+  action: string;
+  entityType: string;
+  entityId: number | null;
+  provenance: 'web' | 'csv' | 'api' | 'mcp' | 'system';
+  createdAt: string;
+  actorId: number | null;
+  actorName: string | null;
+  actorEmail: string | null;
+}
+
+export interface Pagination {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  from: number;
+  to: number;
+}
+
 export type EmailTemplateKey = 'reminder' | 'late-penalty' | 'standings' | 'training-flag';
 
 export interface EmailSettings {

@@ -14,9 +14,12 @@ import { env } from '../env.js';
 /**
  * For every open period, for every scheduled window date whose cutoff has
  * passed, penalise any store with no submission filed by that cutoff.
- * Idempotent: the penalty's reason string names the exact window date, so a
- * re-run finds the existing row and skips it — the late penalty stacks per
- * missed window (decision #3), it never double-charges the same one.
+ *
+ * Idempotent on `(periodId, dealershipId, kind, windowDate)`, which
+ * `penalties_late_window_uq` also enforces — never on the reason text, so a
+ * commissioner can waive a penalty (zero its value) or reword its reason
+ * without the next tick re-issuing it. The late penalty stacks per missed
+ * window (decision #3); it never double-charges the same one.
  */
 export async function applyMissedWindowPenalties(): Promise<number> {
   let issued = 0;
@@ -40,8 +43,7 @@ export async function applyMissedWindowPenalties(): Promise<number> {
         const filed = dealershipSubmissions.some((s) => s.submittedAt <= cutoff);
         if (filed) continue;
 
-        const reason = `Missed the noon cutoff for ${windowDate}`;
-        const already = existingPenalties.some((p) => p.dealershipId === dealership.id && p.reason === reason);
+        const already = existingPenalties.some((p) => p.dealershipId === dealership.id && p.windowDate === windowDate);
         if (already) continue;
 
         await db.insert(penalties).values({
@@ -49,7 +51,8 @@ export async function applyMissedWindowPenalties(): Promise<number> {
           dealershipId: dealership.id,
           kind: 'late_submission',
           value: league.latePenaltyValue,
-          reason,
+          reason: `Missed the noon cutoff for ${windowDate}`,
+          windowDate,
         });
         issued++;
 

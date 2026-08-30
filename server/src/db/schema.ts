@@ -264,6 +264,12 @@ export const penalties = pgTable(
     kind: penaltyKindEnum('kind').notNull(),
     value: numeric('value', { precision: 12, scale: 4 }).notNull(),
     reason: text('reason').notNull(),
+    /**
+     * The submission window a `late_submission` row charges for. Null on every
+     * other kind. This is what the scheduler dedupes on — never the reason
+     * text, so waiving a penalty (zeroing its value) cannot re-issue it.
+     */
+    windowDate: date('window_date'),
     submissionId: integer('submission_id').references(() => submissions.id),
     /** Null for automatic penalties (late submission, training). */
     issuedBy: integer('issued_by').references(() => employees.id),
@@ -274,6 +280,12 @@ export const penalties = pgTable(
       'penalties_exactly_one_target',
       sql`(${t.dealershipId} is not null)::int + (${t.employeeId} is not null)::int = 1`,
     ),
+    // Partial: only late-submission rows carry a window date, and a null one
+    // (a legacy duplicate the backfill could not claim) stays outside the
+    // constraint, because Postgres treats nulls as distinct.
+    uniqueIndex('penalties_late_window_uq')
+      .on(t.periodId, t.dealershipId, t.kind, t.windowDate)
+      .where(sql`${t.kind} = 'late_submission'`),
   ],
 );
 

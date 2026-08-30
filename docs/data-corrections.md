@@ -23,7 +23,7 @@ Two invariants shape every correction:
 | Late submissions, training flags, eligibility warnings | **Admin → Overview** (compliance), or `GET /api/admin/compliance` |
 | Every email the system sent, with status | **Admin → Email**, or `GET /api/admin/email-log`. Status `suppressed` = the pause switch or a template toggle stopped it; the row records what would have gone out. |
 | Dispute-grade export | **Standings → Export** (`.csv` / `.xlsx`), rows carry engine version and publish state |
-| The audit trail | SQL only — `audit_log` is not exposed in the UI or API yet |
+| The audit trail | **Admin → Audit log**, or `GET /api/admin/audit-log` (newest first, paginated, optional `entityType` / `action` filters). The full `before`/`after` payloads are SQL-only |
 | Any table, dev machine | `npm run db:studio` in `server/` (Drizzle Studio, browser UI) |
 | Any table, production | `psql` inside the db container — see the next section |
 
@@ -72,16 +72,17 @@ scoring invariants.
 | Advisor should not count this month | **Manage → Roster → Hide**, with a reason. This is a scoring input: it removes them from the team mean. Do not archive them for this. |
 | Advisor left mid-month | Same hide flow, status `terminated`. |
 | Roster fact wrong (name, store, role, email, hire date) | **Manage → Roster** edit, or a roster import (matches on email, previews a per-field diff). |
-| Manual penalty entered in error | **Manage → Penalties → delete**. Only `manual` penalties can be deleted here — for the other kinds see [Correct with SQL](#correct-with-sql). |
-| A score needs a discretionary deduction | Add a manual penalty with a reason. Values are positive-only; the ledger has no credits. To *restore* points, zero an existing penalty with SQL instead. |
+| Manual penalty entered in error | **Manage → Penalties → delete**. Only `manual` penalties can be deleted here; waive the other kinds instead (next row). |
+| A penalty of any kind should not stand | `POST /api/penalties/:id/waive` with a `reason`. It zeroes the value and records the why in `audit_log`; the row's own `reason` column, which says why it was *issued*, is left alone. A waived late penalty is not re-issued — the scheduler dedupes on the window date. |
+| A score needs a discretionary deduction | Add a manual penalty with a reason. Values are positive-only; the ledger has no credits. To *restore* points, waive an existing penalty. |
+| Wrong store or period on a filing | `DELETE /api/submissions/:id` (commissioner-only) removes the filing and its metric values together, then re-file on **Enter**. Deleting a store's only filing before a past cutoff lets the scheduler charge that window; waive it if that is wrong. |
+| A period was locked or published too early | `POST /api/periods/:id/unlock` returns it to open. Published `scores` rows stay published; after the correction, lock and publish again and the recompute writes the next revision. |
 | Automated mail is going out when it should not | **Admin → Email → Pause all sending**, or turn off the one template. Suppressed sends are logged, not dropped, and the same recipient still gets a real copy once mail resumes. |
 | Automated mail says the wrong thing | **Admin → Email → Edit draft** on that template. Preview and send-test-to-me before saving; **Revert to default** puts the built-in text back. |
 | Published board is wrong | Fix the underlying input (rows in this table, or SQL if the period is no longer open), then `POST /api/periods/:id/recompute` and `POST /api/periods/:id/publish`. This creates revision N+1 and links each old row to its replacement. |
 
-Two things the app cannot do today:
+One thing the app cannot do today:
 
-- **Reopen a period.** `lock` and `publish` are one-way; no unlock route
-  exists. Reopening takes SQL.
 - **Re-mail a corrected board.** The email idempotency key is
   `(template, period, recipient)` and ignores revisions, so recipients of
   revision 1 are skipped when you mail revision 2. Announce corrections on
@@ -123,35 +124,36 @@ update metric_values set value = 123.4567 where id = <id>;
 Store the full-precision figure, not the 2dp display value — a rounded input
 scores wrong (the WC Conv trap in `CLAUDE.md`).
 
-### Waive a late-submission penalty
+### Waive a penalty
 
-Do **not** delete the row, and do **not** edit its reason. The scheduler's
-duplicate check is "a `late_submission` row for this store and period whose
-reason matches this exact text" — delete the row or change one character of
-the reason, and the penalty comes back at full value on the next 15-minute
-tick. Zero the value and leave the reason untouched:
+Use `POST /api/penalties/:id/waive` — it zeroes the value, writes the audit
+row, and works on any kind. Only reach for SQL if the API is unreachable:
 
 ```sql
-update penalties set value = 0
-where id = <id> and kind = 'late_submission';
+update penalties set value = 0 where id = <id>;
 ```
 
-Put the why in the audit row from rule 3 — that is the only safe place for
-it. The durable fix (dedupe on store + window date, not prose) is on the
-books.
+Zero the value; do **not** delete a `late_submission` row. The scheduler
+dedupes on `penalties.window_date`, so a zeroed row still marks the window as
+charged and the penalty does not come back on the next 15-minute tick.
+Deleting it does bring it back at full value, which is occasionally what you
+want.
 
-### Remove a training penalty
+Leave the `reason` column alone. It records why the penalty was *issued*;
+rewording it no longer affects deduplication, but the row is the ledger entry
+and rewriting history in place is not a correction. Put the why of the waiver
+in the audit row from rule 3.
 
-`training_incomplete` penalties are issued by a person, not the scheduler,
-so deleting the row is safe:
-
-```sql
-delete from penalties where id = <id> and kind = 'training_incomplete';
-```
+A `late_submission` row with a null `window_date` predates migration `0003`
+and is a duplicate the backfill could not claim — the sibling row carrying
+the date is the one the scheduler dedupes on.
 
 ### Delete a bad submission
 
-For a filing made against the wrong store or period:
+Use `DELETE /api/submissions/:id` for a filing made against the wrong store
+or period. It removes the metric values with it, in one transaction, and
+audits the full before payload. The SQL equivalent, if the API is
+unreachable:
 
 ```sql
 delete from metric_values where submission_id = <id>;
@@ -160,15 +162,18 @@ delete from submissions where id = <id>;
 
 If this removes a store's only filing before a past cutoff, the scheduler
 will issue a late penalty for that window on its next tick. That is usually
-correct; zero it (as earlier in this section) if it is not.
+correct; waive it (as earlier in this section) if it is not.
 
 ### Reopen a locked or published period
+
+Use `POST /api/periods/:id/unlock`. The SQL equivalent, if the API is
+unreachable:
 
 ```sql
 update periods set status = 'open', locked_at = null where id = <id>;
 ```
 
-Consequences to accept before running it:
+Consequences either way:
 
 - Published `scores` rows stay published — that is by design. After the
   correction, lock and publish again; the recompute writes the next revision.
@@ -208,10 +213,11 @@ re-establishing them.
 
 Corrections that currently require SQL, kept here so they can become routes:
 
-- No unlock route for a period.
-- No credit entries in the penalty ledger, and no in-app edit for
-  non-manual penalties.
-- `audit_log` has no UI or API read path.
-- No submission delete or edit route; the grid supersedes, nothing removes.
-- Late-penalty deduplication keys on the reason string, which makes zeroing
-  (not deleting) the only safe waiver.
+- No credit entries in the penalty ledger. A penalty can be waived to zero
+  but never taken below it, so points cannot be granted, only withheld.
+- No submission *edit* route — the grid supersedes and `DELETE
+  /api/submissions/:id` removes, but nothing amends one filing in place.
+- No route re-mails a corrected board: the email idempotency key ignores
+  revisions, so re-sending still means clearing `email_log` rows by hand.
+- Unlock, waive, submission delete, and the audit-log read have no buttons of
+  their own yet — they are API calls, and only the audit log has a UI.

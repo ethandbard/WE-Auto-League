@@ -4,6 +4,21 @@ Live at auto.ethandbard.com on `25159a8` (`master`). Migration `0001` is
 applied (`email_recipients`, `employees.consecutive_floater_months`). Do not
 re-run seed.
 
+The next deploy applies `0002` (email controls, pauses the league) and `0003`
+(`penalties.window_date` plus its partial unique index, backfilled from the
+existing late penalties' reason text). After it runs, check that no late
+penalty was left with a null `window_date`:
+
+```sql
+select id, period_id, dealership_id, reason from penalties
+where kind = 'late_submission' and window_date is null;
+```
+
+A row here is either a duplicate the backfill deliberately skipped or a
+reason the parser could not read. Neither breaks anything — the scheduler
+dedupes on the sibling row that does carry the date — but a lone unreadable
+row means that window can be charged a second time, so set its date by hand.
+
 ---
 
 ## 1. Turn on real email — DONE (2026-08-29)

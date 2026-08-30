@@ -1,7 +1,8 @@
 import { Router } from 'express';
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { z } from 'zod';
+import { and, count, desc, eq, isNull, or } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { submissions, dealerships, employees, penalties, periods, participation, leagues, emailLog } from '../db/schema.js';
+import { submissions, dealerships, employees, penalties, periods, participation, leagues, emailLog, auditLog } from '../db/schema.js';
 import { asyncHandler, badRequest, notFound, paginationFor } from '../http.js';
 import { requireRole } from '../middleware.js';
 import { currentLeague } from '../league.js';
@@ -76,6 +77,52 @@ adminRouter.get(
       managerCount: employeeRows.filter((e) => e.role === 'manager').length,
       currentPeriod: periodRows[0] ?? null,
     });
+  }),
+);
+
+const auditQuery = paginationQuery.extend({
+  entityType: z.string().min(1).optional(),
+  action: z.string().min(1).optional(),
+});
+
+/**
+ * The audit trail, newest first. Read-only on purpose: `audit_log` is the
+ * record of every write, so nothing in the app edits or removes a row.
+ * Rows with a null `leagueId` (writes that did not carry one, e.g. a
+ * submission) are included — the deployment runs a single league.
+ */
+adminRouter.get(
+  '/audit-log',
+  requireRole('commissioner'),
+  asyncHandler(async (req, res) => {
+    const { page, pageSize, entityType, action } = auditQuery.parse(req.query);
+    const league = await currentLeague();
+    const filters = [or(eq(auditLog.leagueId, league.id), isNull(auditLog.leagueId))];
+    if (entityType) filters.push(eq(auditLog.entityType, entityType));
+    if (action) filters.push(eq(auditLog.action, action));
+    const where = and(...filters);
+
+    const [totals] = await db.select({ count: count() }).from(auditLog).where(where);
+    const rows = await db
+      .select({
+        id: auditLog.id,
+        action: auditLog.action,
+        entityType: auditLog.entityType,
+        entityId: auditLog.entityId,
+        provenance: auditLog.provenance,
+        createdAt: auditLog.createdAt,
+        actorId: auditLog.actorId,
+        actorName: employees.name,
+        actorEmail: employees.email,
+      })
+      .from(auditLog)
+      .leftJoin(employees, eq(employees.id, auditLog.actorId))
+      .where(where)
+      .orderBy(desc(auditLog.createdAt), desc(auditLog.id))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize);
+
+    res.json({ auditLog: rows, pagination: paginationFor(page, pageSize, totals?.count ?? 0) });
   }),
 );
 

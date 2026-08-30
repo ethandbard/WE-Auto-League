@@ -12,7 +12,6 @@ import { asyncHandler, badRequest, unauthorized, forbidden } from '../http.js';
 import { hashApiKey } from './apiKeys.js';
 import { recordSubmission } from './submissions.js';
 import { currentScoresFor } from '../scoring/compute.js';
-import { writeAudit } from '../audit.js';
 
 export const externalRouter = Router();
 
@@ -67,8 +66,11 @@ externalRouter.post(
     }
     // audit_log's actor is left null (no session employee for an API-provenance write); the api_key id
     // in the audit "after" payload is what makes the write traceable back to the key.
-    const result = await recordSubmission(body, { submittedBy: ctx.createdBy, provenance: 'api' });
-    await writeAudit({ actor: null, leagueId: ctx.leagueId, action: 'submission.create', entityType: 'submission', entityId: result.submission!.id, after: { apiKeyId: ctx.id }, provenance: 'api' });
+    const result = await recordSubmission(body, {
+      submittedBy: ctx.createdBy,
+      provenance: 'api',
+      audit: { actor: null, leagueId: ctx.leagueId, action: 'submission.create', after: { apiKeyId: ctx.id } },
+    });
     res.status(201).json(result);
   }),
 );

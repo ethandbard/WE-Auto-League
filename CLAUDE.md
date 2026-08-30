@@ -129,7 +129,14 @@ and mails standings people are paid against. Every run takes a Postgres
 advisory lock (`server/src/scheduler/lock.ts`); every send carries an
 idempotency key of `(template, period, recipient)` that `email_log` enforces
 (`server/src/email/send.ts`'s `sendOnce`). A redeploy firing a job twice must
-be a no-op, not a double penalty. The scheduler runs **in-process** inside the
+be a no-op, not a double penalty.
+
+**Late penalties dedupe on `penalties.windowDate`, never on the reason
+text.** `applyMissedWindowPenalties` skips a window a store already carries a
+row for, and `penalties_late_window_uq` enforces the same key in the
+database. Waiving a penalty (zeroing its value) or rewording its reason
+therefore cannot bring it back on the next tick — which the reason-string
+check it replaced could not promise. The scheduler runs **in-process** inside the
 API server by default (`ENABLE_SCHEDULER` in `.env`); `npm run scheduler` runs
 it standalone, and the lock makes running both safe simultaneously.
 
@@ -188,6 +195,19 @@ MetricSource.submit(period, store, rows[]) → ValidationResult
 Implemented as `recordSubmission()` in `server/src/routes/submissions.ts`,
 shared by all four entry paths — they differ only in the `provenance` they
 pass:
+
+**A rejected filing writes nothing.** Every check runs before the transaction
+opens, and the submission row plus its metric values are written inside one
+`db.transaction`. An orphan submission — a row with no metric values — reads
+as "this store filed" and would silently exempt the store from the
+missed-window late penalty. Pass `meta.audit` and the caller's audit row is
+written on the same transaction, so a rollback takes it too.
+
+**Advisor values are checked against the filing store's roster.** An
+`employeeId` must be an advisor rostered at that dealership or an unassigned
+floater (`storeOrFloaterCondition` in `server/src/roster.ts`, the same roster
+the entry grid renders); anything else is a 400 naming the id. Filing another
+store's advisor would otherwise score against that store's team mean.
 
 - **Web grid** (`POST /api/submissions`) — provenance `web`. The grid also
   accepts a paste of a copied spreadsheet range (see § Frontend conventions);
@@ -340,18 +360,18 @@ WE-Auto-League/
 │       │   └── server.ts         # MCP tools: submit_metrics, get_standings, post_announcement
 │       ├── routes/
 │       │   ├── auth.ts           # request-link, verify, logout, me
-│       │   ├── periods.ts        # list/create/lock/publish/recompute
+│       │   ├── periods.ts        # list/create/lock/unlock/publish/recompute
 │       │   ├── dealerships.ts    # CRUD + archive/restore
 │       │   ├── employees.ts      # roster CRUD + participation (hide/restore)
 │       │   ├── categories.ts     # list/create + weight editing with the totals-100 guard
 │       │   ├── goals.ts          # per-store goals + carry-forward
-│       │   ├── submissions.ts    # entry grid read + write; exports recordSubmission()
+│       │   ├── submissions.ts    # entry grid read + write + delete; exports recordSubmission()
 │       │   ├── import.ts         # CSV + XLSX preview/commit, plus roster import — thin wrapper over ingestion/
 │       │   ├── export.ts         # standings CSV + XLSX download
 │       │   ├── scores.ts         # standings, advisor card, store view
-│       │   ├── penalties.ts      # manual penalties + training flag (mails trainingFlagEmail)
+│       │   ├── penalties.ts      # manual penalties + training flag (mails trainingFlagEmail) + waive
 │       │   ├── announcements.ts  # message board + read receipts
-│       │   ├── admin.ts          # compliance view, workspace overview, email log
+│       │   ├── admin.ts          # compliance view, workspace overview, email log, audit log
 │       │   ├── apiKeys.ts        # scoped key issuance/revocation
 │       │   ├── leagues.ts        # GET/PUT /api/leagues/current
 │       │   ├── emailRecipients.ts # extra standings/reminder recipients
@@ -393,13 +413,14 @@ WE-Auto-League/
             │   ├── CategoriesTab.tsx
             │   └── PenaltiesTab.tsx
             ├── Announcements.tsx
-            ├── Admin.tsx           # tab shell: overview, settings, teams, employees, email, API keys
+            ├── Admin.tsx           # tab shell: overview, settings, teams, employees, email, API keys, audit log
             └── admin/
                 ├── OverviewTab.tsx
                 ├── LeagueSettingsTab.tsx
                 ├── TeamsTab.tsx
                 ├── EmailTab.tsx
-                └── ApiKeysTab.tsx
+                ├── ApiKeysTab.tsx
+                └── AuditTab.tsx      # read-only audit_log: time, actor, action, entity, provenance
 ```
 
 ### Routes (client)
@@ -444,13 +465,13 @@ league mail, and `email_template_overrides` so a commissioner can redraft one.
 | `goals` | Target per store/category/period | `source`: league_default vs store_override |
 | `submissions` | One filing for one window | `windowDate`, `onTime`, `isFinal`, `provenance` |
 | `metric_values` | The numbers | `employeeId` null = store-level (manager board) row |
-| `penalties` | Point adjustments | `late_submission` / `training_incomplete` / `manual`; check constraint: exactly one of `dealershipId`/`employeeId` |
+| `penalties` | Point adjustments | `late_submission` / `training_incomplete` / `manual`; check constraint: exactly one of `dealershipId`/`employeeId`. `windowDate` is set on `late_submission` rows only and is what the scheduler dedupes on — `penalties_late_window_uq` is a partial unique index on `(periodId, dealershipId, kind, windowDate)` |
 | `scores` | Computed results | Append-only, `revision` + `supersededById`; see § Rules |
 | `announcements` / `announcement_reads` | Message board | |
 | `email_log` | Every send | `idempotencyKey` unique — see § Rules. `status` adds `suppressed` for a send the pause switch or a template toggle stopped |
 | `email_recipients` | Extra inboxes CCed on league mail | Soft-delete via `revokedAt`; `templates` jsonb |
 | `email_template_overrides` | A commissioner's drafted subject/body | One row per `(league, templateKey)`; `{{placeholder}}` markers. No row = the code default in `email/templates.ts` ships |
-| `audit_log` | Every write | `actorId` nullable (API/MCP writes attribute to the key's creator instead — see `external.ts`) |
+| `audit_log` | Every write | `actorId` nullable (API/MCP writes attribute to the key's creator instead — see `external.ts`). Append-only: read at `GET /api/admin/audit-log` and **Admin → Audit log**, never edited or deleted |
 | `api_keys` | Scoped REST/MCP credentials | `keyHash` only, never the raw key after issuance |
 | `magic_links` / `sessions` | Auth | Hashed tokens, 15-min link expiry, `AUTH_SESSION_DAYS` session expiry |
 
@@ -480,6 +501,7 @@ Security headers come from `helmet()` at its defaults.
 | GET/POST | `/api/periods` | List / create (with optional carry-forward from another period) |
 | POST | `/api/periods/:id/lock` | Marks the latest submission per store final, computes scores |
 | POST | `/api/periods/:id/publish` | Publishes the current revision — immutable from here |
+| POST | `/api/periods/:id/unlock` | Commissioner-only. Locked or published back to open. Published scores stay published; recompute + publish after the re-lock writes the next revision. 400 if already open |
 | POST | `/api/periods/:id/recompute` | Recomputes without publishing (provisional/live leaderboard) |
 | POST | `/api/periods/:id/mail-standings` | Commissioner-only; 400 unless published. Returns `{recipientCount, sent, alreadySent, failed, suppressed}` |
 | GET/POST | `/api/dealerships` | List / create; `POST /:id/archive`, `/:id/restore` |
@@ -490,6 +512,7 @@ Security headers come from `helmet()` at its defaults.
 | GET/PUT | `/api/goals` | Read / bulk-set per store+period; `POST /carry-forward` |
 | GET | `/api/submissions/current` | Entry-grid data: roster, categories, last-filed values, window/cutoff info |
 | POST | `/api/submissions` | File a window — the web grid's write path |
+| DELETE | `/api/submissions/:id` | Commissioner-only. Removes the filing and its metric values in one transaction |
 | POST | `/api/import/preview`, `/commit` | CSV import — same write path, provenance `csv` |
 | POST | `/api/import/preview-xlsx`, `/commit-xlsx` | XLSX import — multipart `file` plus dealershipId/periodId |
 | POST | `/api/import/roster/preview`, `/commit` | Roster import — commissioner-only; `file` (csv/xlsx) or `text`. Matches on email: known address updates, new one is created |
@@ -500,10 +523,12 @@ Security headers come from `helmet()` at its defaults.
 | GET | `/api/scores/:periodId/advisor/:employeeId` | Advisor card: breakdown, gap to next position |
 | GET | `/api/scores/:periodId/dealership/:dealershipId` | Store view: manager + team + roster scores |
 | GET/POST | `/api/penalties` | List / manual penalty; `DELETE /:id` (manual only); `POST /training-flag` |
+| POST | `/api/penalties/:id/waive` | Commissioner-only. Zeroes any kind's value with a required `reason` recorded in the audit row; the `reason` column is left alone |
 | GET/POST | `/api/announcements` | List (with `read` flag for the acting user) / post; `POST /:id/read` |
 | GET | `/api/admin/compliance` | Late submissions, training flags, manager-eligibility and floater warnings for a period |
 | GET | `/api/admin/overview` | Workspace counts |
 | GET | `/api/admin/email-log` | Recent `email_log` rows, paginated |
+| GET | `/api/admin/audit-log` | `audit_log` newest first, paginated, with optional `entityType` / `action` filters. Read-only — nothing edits the trail |
 | GET/PUT | `/api/leagues/current` | League settings; PUT is commissioner-only |
 | GET/POST | `/api/email-recipients` | Extra recipients; `PATCH /:id`, `POST /:id/revoke` |
 | GET/PUT | `/api/email-settings` | Commissioner-only. Pause switch, per-template toggles, `reminderLeadHours`, `autoMailStandingsOnPublish`. PUT is a full replace |
@@ -607,8 +632,9 @@ scoring engine and the ingestion parsers.
 
 **`npm run test:integration` is DB-backed.** `server/test/integration/*.itest.ts`,
 covering the logic that only exists against real rows: `recordSubmission`,
-`canWriteForDealership`, magic-link issue/consume/expiry, and
-`applyMissedWindowPenalties` idempotency. `npm run test:all` runs both.
+`canWriteForDealership`, magic-link issue/consume/expiry,
+`applyMissedWindowPenalties` idempotency, and the correction routes.
+`npm run test:all` runs both.
 
 Rules for the integration suite:
 
@@ -624,10 +650,16 @@ Rules for the integration suite:
   truncates. Files run with `--test-concurrency=1` because they share it.
 - **Seed inline from `harness.ts`'s fixture helpers, never `scripts/seed.ts`** —
   a suite should not depend on the shape of the June 2026 fixture.
+- **A route is tested over HTTP**, because its middleware chain and the error
+  mapping in `http.ts` are half of what it does. `corrections.itest.ts` mounts
+  the real routers on a throwaway Express app with a stub actor middleware in
+  place of `attachActor` — session resolution is `auth.itest.ts`'s job.
+  `src/index.ts` itself starts listening on import, so it is never the thing
+  under test.
 - **A test that documents a known bug says so in a comment** and asserts what is
   true today, so it fails loudly when the bug is fixed rather than silently
-  passing. `submissions.itest.ts`'s orphan-row test is the current example
-  (hardening-plan.md phase 3).
+  passing. There is no such test at the moment — `submissions.itest.ts`'s
+  orphan-row test was the example, and phase 3 fixed the bug and flipped it.
 
 ## Local development
 
@@ -722,9 +754,11 @@ Magic-link sessions stay the local default. Do not switch production back
 to `session` until Cloudflare Email Sending is configured.
 
 The production image has no `tsx`. Migrate and seed with compiled JS, not
-the npm scripts. Migration `0001` is already applied; `0002` (the email
+the npm scripts. Migration `0001` is already applied. `0002` (the email
 controls) applies on the next deploy and pauses the existing league as its
-data step. Do not re-run seed:
+data step; `0003` (`penalties.window_date` and its partial unique index)
+follows, backfilling existing late penalties from their reason text. Do not
+re-run seed:
 
 ```
 docker compose exec app node server/dist/db/migrate.js

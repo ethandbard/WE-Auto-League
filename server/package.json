@@ -17,7 +17,7 @@
     "scheduler": "tsx src/scripts/run-scheduler.ts",
     "mcp": "tsx src/scripts/run-mcp.ts",
     "test": "node --import tsx --test \"test/*.test.ts\"",
-    "test:integration": "cross-env DATABASE_URL=postgres://postgres@localhost:5432/we_auto_league_itest AUTH_PROVIDER=session EMAIL_PROVIDER=console node --import tsx --test --test-concurrency=1 test/integration/auth.itest.ts test/integration/middleware.itest.ts test/integration/scheduler.itest.ts test/integration/submissions.itest.ts",
+    "test:integration": "cross-env DATABASE_URL=postgres://postgres@localhost:5432/we_auto_league_itest AUTH_PROVIDER=session EMAIL_PROVIDER=console node --import tsx --test --test-concurrency=1 test/integration/auth.itest.ts test/integration/corrections.itest.ts test/integration/middleware.itest.ts test/integration/scheduler.itest.ts test/integration/submissions.itest.ts",
     "test:all": "npm run test && npm run test:integration"
   },
   "dependencies": {
