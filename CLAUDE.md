@@ -26,6 +26,7 @@ of why if the rule is otherwise unfollowable, and stop.
 | [docs/build-plan.html](docs/build-plan.html) | The original plan. Scoring model derivation, architecture, data model, 8 phases. Open in a browser. |
 | [TODO.md](TODO.md) | Remaining ops and follow-ups. Read this before picking up work. |
 | [docs/decisions.md](docs/decisions.md) | Nine open questions, all decided. Do not re-litigate. |
+| [docs/data-corrections.md](docs/data-corrections.md) | Runbook: view and fix data — app paths first, SQL surgery rules, backup/restore. |
 | [fixtures/june-2026.json](fixtures/june-2026.json) | Golden-master fixture: 6 advisors + all 8 managers, hand-verified to the cent against the scan. |
 | [fixtures/june-2026-full.json](fixtures/june-2026-full.json) | All 45 advisors + all 8 managers, transcribed from a 6×-magnified render of the scan and cross-validated: every store's team score reproduces the golden fixture exactly. This is what `seed.ts` loads. |
 | [fixtures/verify-fixture.mjs](fixtures/verify-fixture.mjs) | Standalone proof of the scoring formula, no app or deps. `node fixtures/verify-fixture.mjs` |
@@ -599,12 +600,13 @@ commit that is running. Ingress, DNS, and the Access app `auto` (reusable
 `allow-emails` policy) all use this hostname. Deployment, the shared
 tunnel, Access, and backups go through the `deploy-to-hetzner` skill.
 
-Backups are **weekly**, not nightly: `backup.sh` runs from cron at
-`0 6 * * 0`, snapshotting a Postgres dump to the R2 bucket
+Backups are **daily** (moved from weekly 2026-08-30): `backup.sh` runs from
+cron at `0 6 * * *`, snapshotting a Postgres dump to the R2 bucket
 `ethandbard-vps-backups` via restic, retention
 `--keep-daily 7 --keep-weekly 4 --keep-monthly 6`. Worst-case data loss is
-therefore up to seven days — a full submission cycle. Backups are a property
-of this VPS, not of the app: moving hosts means re-establishing them.
+about 24 hours. Backups are a property of this VPS, not of the app: moving
+hosts means re-establishing them. Viewing and fixing data (including safe
+SQL surgery) is [docs/data-corrections.md](docs/data-corrections.md).
 
 Production `AUTH_PROVIDER` is `cloudflare-access`. Two gates, not one:
 
@@ -649,10 +651,20 @@ transport that returns a real provider message id, so `email_log`'s
 `providerMessageId` is null on the others. Cloudflare's send path is
 `/email/sending/send`; a `permanent_bounces` hit counts as `failed`.
 
-Production still has no credential set, so the console transport is live and
-**no mail is actually going out**. SPF/DKIM for the sending domain is not
-configured either. See [TODO.md](TODO.md) item 1 — this is what gates moving
-`AUTH_PROVIDER` off `cloudflare-access`.
+Resend is live in production as of 2026-08-29. Mail sends from
+`standings@mail.auto.ethandbard.com`, a verified sending domain whose DKIM,
+SPF, and DMARC records sit on the `ethandbard.com` zone under
+`mail.auto`. **Never put SPF or DKIM on `auto.ethandbard.com`** — that
+hostname is a proxied tunnel CNAME. DMARC is scoped to `_dmarc.mail.auto`,
+not the apex: the zone is shared with the other projects, and an apex record
+sets policy for all of them.
+
+The seeded roster is still 53 placeholder `@weauto.local` addresses, so the
+scheduler's reminder and late-penalty mail now hard-bounces. See
+[TODO.md](TODO.md) item 1a before the next submission window.
+
+Moving `AUTH_PROVIDER` off `cloudflare-access` is no longer gated on email;
+it is gated on rate-limiting `POST /api/auth/request-link` — TODO item 1.
 
 ---
 

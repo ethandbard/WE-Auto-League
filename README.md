@@ -104,7 +104,7 @@ Docker Compose on the VPS, mirroring `../pokemon-crm`: the app and Postgres 16,
 the app joining the shared `edge` network with no host port published,
 Postgres on `internal` only. `config.env` is the Compose `env_file` and is
 git-ignored. Deployment itself goes through the `deploy-to-hetzner` skill,
-which also owns the shared Cloudflare tunnel and nightly backups.
+which also owns the shared Cloudflare tunnel and daily backups.
 
 After the first deploy, migrate and seed from compiled JS inside the app
 container. The image has no `tsx`, so `npm run db:migrate` / `npm run seed`
@@ -147,7 +147,9 @@ and conventions. [TODO.md](TODO.md) is the remaining-work list for the next
 session. [docs/build-plan.html](docs/build-plan.html) is the original
 build plan — scoring model derivation, phase breakdown, risks. [decisions.md](docs/decisions.md)
 records the nine open questions from the client's brief and how each was
-resolved. Keep these to facts and rules; no rationale essays beyond what's
+resolved. [docs/data-corrections.md](docs/data-corrections.md) is the
+runbook for viewing and correcting data, including safe SQL fixes and the
+backup schedule. Keep these to facts and rules; no rationale essays beyond what's
 already there.
 
 ## License

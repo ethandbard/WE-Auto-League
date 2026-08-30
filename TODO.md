@@ -6,36 +6,40 @@ re-run seed.
 
 ---
 
-## 1. Turn on real email — code is done, needs a key and DNS
+## 1. Turn on real email — DONE (2026-08-29)
 
-**Resend is wired and is now the default transport** (2026-08-27). The
-Cloudflare transport is kept as an alternative but is no longer the plan:
-Email Sending is gated behind Workers Paid ($5/mo) on account
-`f6afef234770add442ef630ebd2e82c9`, and it is still in public beta. Resend
-needs neither, and its free tier (3,000/mo, 100/day) covers this league's
-volume — roughly 400–500 sends a month.
+**Resend is live in production.** `mail.auto.ethandbard.com` is a verified
+sending domain on the `thebardfamily` Resend account, region `us-east-1`,
+custom return-path `send`. Production `config.env` carries
+`EMAIL_PROVIDER=resend`, `EMAIL_FROM=standings@mail.auto.ethandbard.com`,
+and `RESEND_API_KEY` (key `we-auto-league-prod`, **Sending access**, scoped
+to all domains — tighten to this one when a second domain is added). The
+Cloudflare transport stays in the code as an alternative but is not the plan:
+Email Sending needs Workers Paid and is still in public beta.
 
-Nothing sends until a credential is set. Production `config.env` currently
-has every email credential empty, so `selectTransport()` falls through to the
-console transport.
+Four DNS records on the `ethandbard.com` zone, all `DNS only`:
 
-To finish:
+| Type | Name | Content |
+|---|---|---|
+| TXT | `resend._domainkey.mail.auto` | the 218-char `p=…` DKIM key |
+| MX | `send.mail.auto` | `feedback-smtp.us-east-1.amazonses.com`, priority 10 |
+| TXT | `send.mail.auto` | `v=spf1 include:amazonses.com ~all` |
+| TXT | `_dmarc.mail.auto` | `v=DMARC1; p=none;` |
 
-1. Create the Resend account and verify a sending domain. Resend issues the
-   SPF and DKIM records; add them to the zone. Do **not** put SPF on
-   `auto.ethandbard.com` — that hostname is already a CNAME. Use a
-   subdomain (`mail.auto.ethandbard.com`, decision #8).
-2. Check whether `_dmarc.ethandbard.com` already exists before adding one —
-   the zone is shared with the other projects.
-3. Set `RESEND_API_KEY`, `EMAIL_PROVIDER=resend`, and
-   `EMAIL_FROM=standings@mail.auto.ethandbard.com` in both
-   `~/.we-auto-league-secrets/config.env` and `/opt/we-auto-league/config.env`.
-   Compare checksums first. Do not overwrite production with a local test file.
-4. Recycle the app container so it picks up the env file
-   (`cd /opt/we-auto-league && docker compose up -d`). No image rebuild needed.
-5. In Admin → **Email & communications**, send standings for a published
-   period. Confirm rows in `email_log` (with a non-null `providerMessageId`,
-   which only Resend returns) and in the Resend dashboard.
+Two deliberate departures from what the Resend dashboard hands you. Its
+inbound MX (`mail.auto` → `inbound-smtp.us-east-1.amazonaws.com`) is **not**
+added — this app only sends. And DMARC is scoped to `_dmarc.mail.auto`, not
+the apex `_dmarc`: the zone is shared with notebox, pokemon-crm, and the
+homepage, and an apex record sets policy for all of them.
+
+Do **not** use Resend's "Auto configure" button. It takes an OAuth grant with
+write access to the whole zone.
+
+Verified end to end: a `sendOnce()` call from inside the production container
+delivered to `ethan@thebardfamily.com` and wrote an `email_log` row with a
+non-null `providerMessageId`. That field is the tell — only Resend returns
+one, so any row with a null id was written by the console or Cloudflare
+transport.
 
 **Before switching `AUTH_PROVIDER` to `session`, rate-limit
 `POST /api/auth/request-link`.** It is unauthenticated, and Cloudflare Access
@@ -48,15 +52,33 @@ Sending should eventually come from the *client's* domain, not
 `ethandbard.com` — that is a handoff asset, and it is what makes the mail
 look like a product rather than a favour.
 
-Use the `deploy-to-hetzner` skill.
+## 1a. The scheduler now mails placeholder addresses
+
+Turning the transport on made a dormant problem live. `seed.ts` gives every
+seeded employee an address at `@weauto.local`, a TLD that does not exist. 53
+of the 55 rows are placeholders; only `ethan@thebardfamily.com` is real.
+
+Published-standings mail is safe: its idempotency key is `standings:<scope>`
+plus the period, and those rows are already logged `sent` from the
+console-transport era, so `sendOnce` short-circuits them.
+
+Reminders and late penalties are **not** safe. Their keys carry the window
+date (`reminder:<windowDate>`, `late-penalty:<windowDate>`), so every new
+window is a new key and a real send — 8 managers, twice a week, all hard
+bouncing on a two-day-old sending domain.
+
+Either load real addresses (item 1b) or set `ENABLE_SCHEDULER=false` in
+`/opt/we-auto-league/config.env` before the next submission window. The
+second option also stops late-submission penalties from being *applied*, not
+just mailed — it is a scoring change, not only a mail change.
 
 ## 1b. Collect the roster's email addresses
 
-Blocks everything in item 1 that isn't DNS. The seeded roster has 45 advisors
-and **no email addresses** — the fixture has none, because the source was a
-printed scoreboard. Bulk roster import now exists to load them
-(Manage → Roster → Import roster, commissioner-only, matches on email), so
-this is a data-collection task, not a build task.
+Now urgent — see item 1a. The seeded roster has 45 advisors and **no real
+email addresses**: `seed.ts` synthesizes `<alias>@weauto.local` for everyone,
+because the fixture's source was a printed scoreboard. Bulk roster import now
+exists to load them (Manage → Roster → Import roster, commissioner-only,
+matches on email), so this is a data-collection task, not a build task.
 
 Open question for the client, and it may change the product: **do service
 advisors have individual work email?** At a lot of dealerships they don't. If
@@ -97,12 +119,14 @@ Both fixes are committed to the `agent-skills` repo, not just the VPS copy —
 reinstall (`./install.sh deploy-to-hetzner`) picks them up for other
 projects too.
 
-**Still open: the cadence is wrong for this app.** `backup.sh` runs weekly
-(`0 6 * * 0`), so worst-case loss is seven days — an entire submission cycle,
-for data people are paid against. The retention flags
-(`--keep-daily 7`) imply a daily run that isn't scheduled. Either move the
-cron to daily, or accept a 7-day RPO deliberately and write it down. Backups
-also live entirely on this VPS: moving hosts re-opens this from zero.
+**Cadence fixed 2026-08-30.** The cron is now daily (`0 6 * * *`), matching
+the `--keep-daily 7` retention that always implied it. Worst-case loss is now
+about 24 hours. The change is reflected in the `agent-skills` repo
+(`deploy-to-hetzner` README/SKILL/references and `finish-vps.ps1`, so a VPS
+rebuild reinstalls daily, not weekly) and the skill was reinstalled. The
+day-to-day view/fix/restore procedures are documented in
+[docs/data-corrections.md](docs/data-corrections.md). Still true: backups
+live entirely on this VPS — moving hosts re-opens this from zero.
 
 ## 3. CC extra recipients on non-standings templates — done
 
