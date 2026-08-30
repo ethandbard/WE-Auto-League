@@ -738,10 +738,14 @@ Production `AUTH_PROVIDER` is `cloudflare-access`. Two gates, not one:
    `employees.email`. The seed commissioner is `ethan@thebardfamily.com`.
    Matching that row is what makes someone a commissioner in the app.
 
-`CF_ACCESS_TEAM_DOMAIN` is `https://ethandbard.cloudflareaccess.com`.
-`CF_ACCESS_AUD` is the Application Audience tag of the Access app `auto`, on
-its Overview page in Zero Trust → Access → Applications. Rotating the Access
-app issues a new AUD tag, and every request 401s until `config.env` catches up.
+`CF_ACCESS_TEAM_DOMAIN` is `https://throbbing-frog-e774.cloudflareaccess.com`
+— the team's own Cloudflare-assigned name, not a vanity `ethandbard` one, and
+also the Access JWT's `iss`; confirm it from the login redirect
+(`curl -sI https://auto.ethandbard.com/`), never guess it.
+`CF_ACCESS_AUD` is the Application Audience tag of the Access app `auto`, under
+Additional settings → AUD tag in Zero Trust → Access → Applications. Rotating
+the Access app issues a new AUD tag, and every request 401s until `config.env`
+catches up.
 
 Do not clear only the client actor on Sign out — Access still has a JWT,
 `/api/auth/me` will restore them, and the magic-link form cannot email.
