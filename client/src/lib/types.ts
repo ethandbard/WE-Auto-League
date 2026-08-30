@@ -76,9 +76,39 @@ export interface EmailLogRow {
   template: string;
   periodId: number | null;
   recipientEmail: string;
-  status: 'queued' | 'sent' | 'failed';
+  /** `suppressed` = the pause switch or a template toggle stopped it. */
+  status: 'queued' | 'sent' | 'failed' | 'suppressed';
   sentAt: string | null;
   createdAt: string;
+}
+
+export type EmailTemplateKey = 'reminder' | 'late-penalty' | 'standings' | 'training-flag';
+
+export interface EmailSettings {
+  emailPaused: boolean;
+  templatesEnabled: Record<EmailTemplateKey, boolean>;
+  reminderLeadHours: number;
+  autoMailStandingsOnPublish: boolean;
+}
+
+export interface EmailTemplateDraft {
+  subject: string;
+  body: string;
+}
+
+export interface EmailTemplateSummary {
+  key: EmailTemplateKey;
+  label: string;
+  description: string;
+  placeholders: string[];
+  enabled: boolean;
+  defaultDraft: EmailTemplateDraft;
+  override: (EmailTemplateDraft & { updatedAt: string }) | null;
+}
+
+export interface EmailPreview {
+  source: 'draft' | 'override' | 'default';
+  preview: { subject: string; html: string; text: string };
 }
 
 export interface RosterMember {
